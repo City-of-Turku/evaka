@@ -6,12 +6,15 @@
 
 set -euo pipefail
 
+cd "$( dirname "${BASH_SOURCE[0]}")"
+
+YARN_IMAGE=${DOCKER_IMAGE:-evaka/yarn}
 DOCKER_IMAGE=${DOCKER_IMAGE:-evaka/api-gateway}
 DOCKER_TAG=${DOCKER_TAG:-local}
 GIT_SHA=$(git rev-parse HEAD)
 
-yarn build
-
+docker build --build-arg commit="${GIT_SHA}" --build-arg build=local -t "${YARN_IMAGE}"  -f yarn.Dockerfile .
 docker build --build-arg commit="${GIT_SHA}" --build-arg build=local -t "${DOCKER_IMAGE}" .
+
 docker tag "${DOCKER_IMAGE}" "${DOCKER_IMAGE}:${DOCKER_TAG}"
 docker tag "${DOCKER_IMAGE}:${DOCKER_TAG}" "${DOCKER_IMAGE}:${GIT_SHA}"

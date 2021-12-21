@@ -3,10 +3,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 *
-!dist
-!config/certificates
+!src
+!config
 !package.json
 !yarn.lock
+!yarnrc.yml
+!tsconfig.lock
+!tsconfig.json
 !entrypoint.sh
 !.yarn/releases
 !.yarn/plugins

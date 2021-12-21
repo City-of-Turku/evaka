@@ -262,20 +262,6 @@ commands:
           name: Restore build artifacts
           key: service-build-v1-{{ .Environment.CIRCLE_WORKFLOW_WORKSPACE_ID }}
 
-  store_apigw_deps:
-    steps:
-      - save_cache:
-          key: yarn-cache-apigw-v1-{{ checksum ".circleci/template.yml" }}-{{ checksum "apigw/yarn.lock" }}
-          paths:
-            - apigw/.yarn/cache
-  restore_apigw_deps:
-    steps:
-      - restore_cache:
-          keys:
-            - yarn-cache-apigw-v1-{{ checksum ".circleci/template.yml" }}-{{ checksum "apigw/yarn.lock" }}
-            - yarn-cache-apigw-v1-
-            - yarn-cache-apigw-
-
   store_frontend_deps:
     steps:
       - save_cache:
@@ -668,25 +654,41 @@ commands:
       push:
         type: boolean
         default: true
+      save:
+        type: boolean
+        default: true
+      dockerfile:
+        type: string
+        default: Dockerfile
+      extra_arguments:
+        type: string
+        default: ""
+
     steps:
       - run:
           name: Build docker image
           working_directory: << parameters.dir >>
           command: |
             docker build \
-              -t << parameters.image >> \
+              -t "<< parameters.image >>" \
               --build-arg "build=${CIRCLE_BUILD_NUM}" \
               --build-arg "commit=${CIRCLE_SHA1}" \
+              << parameters.extra_arguments >> \
+              -f "<< parameters.dockerfile >>" \
               .
+
       - when:
           condition: << parameters.push >>
           steps:
             - push_docker_image:
                 image: << parameters.image >>
-      - run:
-          name: Save docker image
-          working_directory: << parameters.dir >>
-          command: docker save << parameters.image >> > image.tar
+      - when:
+          condition: << parameters.save >>
+          steps:
+            - run:
+                name: Save docker image
+                working_directory: << parameters.dir >>
+                command: docker save << parameters.image >> > image.tar
 
   deploy_services:
     parameters:
@@ -876,33 +878,7 @@ jobs:
             - evaka-base.tar
       - notify_slack
 
-  apigw_build_and_test:
-    executor: apigw_executor
-    steps:
-      - restore_repo
-      - restore_apigw_deps
-      - run:
-          working_directory: *workspace_apigw
-          command: yarn install --immutable
-      - store_apigw_deps
-      - run:
-          working_directory: *workspace_apigw
-          command: yarn build
-      - persist_to_workspace:
-          root: << pipeline.parameters.workspace_root >>
-          paths:
-            - apigw/dist
-      - run:
-          working_directory: *workspace_apigw
-          command: yarn lint
-      - run:
-          working_directory: *workspace_apigw
-          command: yarn test-ci
-      - store_test_results:
-          path: << pipeline.parameters.workspace_root >>/apigw/build/test-reports
-      - notify_slack
-
-  apigw_build_and_push_image:
+  apigw_build_test_push:
     executor: aws_docker_executor
     steps:
       - restore_repo
@@ -911,6 +887,34 @@ jobs:
           version: *remote_docker_version
           docker_layer_caching: true
       - load_base_image
+      - build_docker_image:
+          image: evaka/yarn
+          dir: *workspace_apigw
+          dockerfile: yarn.Dockerfile
+          push: true
+          save: false
+
+      - build_docker_image:
+          image: evaka/api-gateway-build
+          dir: *workspace_apigw
+          push: true
+          save: false
+          extra_arguments: "--target=builder"
+      - build_docker_image:
+          image: evaka/api-gateway-test
+          dir: *workspace_apigw
+          push: false
+          save: false
+          extra_arguments: "--target=tester"
+      - run:
+          name: Get test results
+          working_directory: *workspace_apigw
+          command: |
+            id=$(docker create evaka/api-gateway-test)
+            docker cp "$id:/project/build/test-reports" .
+            docker rm -v "$id"
+      - store_test_results:
+          path: << pipeline.parameters.workspace_root >>/apigw/test-reports
       - build_docker_image:
           image: evaka/api-gateway
           dir: *workspace_apigw
@@ -1199,15 +1203,10 @@ workflows:
           requires:
             - checkout_repo
 
-      - apigw_build_and_test:
+      - apigw_build_test_push:
           <<: *default_contexts
           requires:
-            - checkout_repo
-      - apigw_build_and_push_image:
-          <<: *aws_contexts
-          requires:
             - build_base_image
-            - apigw_build_and_test
 
       - frontend_build_core:
           <<: *aws_docker_contexts
@@ -1232,14 +1231,14 @@ workflows:
           requires:
             - e2e-build-testcafe
             - frontend_build_core
-            - apigw_build_and_push_image
+            - apigw_build_test_push
             - service_build_and_push_image
       - e2e-test-playwright:
           <<: *default_contexts
           requires:
             - e2e-build-playwright
             - frontend_build_core
-            - apigw_build_and_push_image
+            - apigw_build_test_push
             - service_build_and_push_image
 
       - proxy_build_and_push_image:
@@ -1295,7 +1294,7 @@ workflows:
             - frontend_build_misc_and_test
             - e2e-test-testcafe
             - e2e-test-playwright
-            - apigw_build_and_push_image
+            - apigw_build_test_push
             - proxy_build_and_push_image
             - service_build_and_push_image
           matrix:
