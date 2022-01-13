@@ -319,7 +319,7 @@ export interface Invoice {
 */
 export interface InvoiceCodes {
   costCenters: string[]
-  products: Product[]
+  products: ProductWithName[]
   subCostCenters: string[]
 }
 
@@ -374,7 +374,7 @@ export interface InvoiceRow {
   periodEnd: LocalDate
   periodStart: LocalDate
   price: number
-  product: Product
+  product: string
   subCostCenter: string | null
   unitPrice: number
 }
@@ -391,7 +391,7 @@ export interface InvoiceRowDetailed {
   periodEnd: LocalDate
   periodStart: LocalDate
   price: number
-  product: Product
+  product: string
   subCostCenter: string | null
   unitPrice: number
 }
@@ -483,21 +483,12 @@ export interface PersonDetailed {
 }
 
 /**
-* Generated from fi.espoo.evaka.invoicing.domain.Product
+* Generated from fi.espoo.evaka.invoicing.service.ProductWithName
 */
-export type Product = 
-  | 'DAYCARE'
-  | 'DAYCARE_DISCOUNT'
-  | 'DAYCARE_INCREASE'
-  | 'PRESCHOOL_WITH_DAYCARE'
-  | 'PRESCHOOL_WITH_DAYCARE_DISCOUNT'
-  | 'PRESCHOOL_WITH_DAYCARE_INCREASE'
-  | 'TEMPORARY_CARE'
-  | 'SCHOOL_SHIFT_CARE'
-  | 'SICK_LEAVE_100'
-  | 'SICK_LEAVE_50'
-  | 'ABSENCE'
-  | 'FREE_OF_CHARGE'
+export interface ProductWithName {
+  key: string
+  nameFi: string
+}
 
 /**
 * Generated from fi.espoo.evaka.invoicing.controller.SearchFeeDecisionRequest
