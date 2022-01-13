@@ -1,127 +1,136 @@
-// SPDX-FileCopyrightText: 2017-2021 City of Espoo
+// SPDX-FileCopyrightText: 2017-2022 City of Espoo
 //
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-import React, { Dispatch, SetStateAction } from 'react'
-import { Link } from 'react-router-dom'
+import React, { Dispatch, SetStateAction, useCallback } from 'react'
 import styled from 'styled-components'
-import { isLoading, Result } from 'lib-common/api'
+import { isLoading, Result, Success } from 'lib-common/api'
 import { PublicUnit } from 'lib-common/generated/api-types/daycare'
+import { OccupancyResponseSpeculated } from 'lib-common/generated/api-types/occupancy'
 import LocalDate from 'lib-common/local-date'
 import { UUID } from 'lib-common/types'
-import { formatPercentage } from 'lib-common/utils/number'
 import { useApiState } from 'lib-common/utils/useRestApi'
+import { SelectionChip } from 'lib-components/atoms/Chip'
+import ExternalLink from 'lib-components/atoms/ExternalLink'
 import UnderRowStatusIcon from 'lib-components/atoms/StatusIcon'
-import Title from 'lib-components/atoms/Title'
-import InlineButton from 'lib-components/atoms/buttons/InlineButton'
-import { fontWeights } from 'lib-components/typography'
+import CrossIconButton from 'lib-components/atoms/buttons/CrossIconButton'
+import { Bold, H2, InformationText, Title } from 'lib-components/typography'
+import { defaultMargins, Gap } from 'lib-components/white-space'
 import colors from 'lib-customizations/common'
-import { faCheck } from 'lib-icons'
-import { getOccupancyRates, OccupancyResponse } from '../../api/unit'
 import { useTranslation } from '../../state/i18n'
 import { DaycarePlacementPlan } from '../../types/placementdraft'
-import { Occupancy } from '../../types/unit'
 import { renderResult } from '../async-rendering'
 
-const MarginBox = styled.div`
-  margin: 1rem;
-  text-align: center;
+const Numbers = styled.div`
+  display: flex;
+  gap: ${defaultMargins.s};
+  justify-content: space-evenly;
 `
 
-const Card = styled.div<{ active: boolean }>`
-  margin: 2rem 1rem;
-  border: 1px solid ${colors.greyscale.lightest};
-  border-top-width: 5px;
-  background: ${colors.greyscale.white};
-  padding: 2rem;
-  flex: 1 0 30%;
-  max-width: calc(33% - 2rem);
-  position: relative;
-  text-align: center;
-  ${({ active }) =>
-    active &&
-    `
-    box-shadow: 0px 0px 6px 4px lightgray;
-    border-top: 5px solid ${colors.main.dark};
-    border-width: 5px 0 0 0;
-  `}
+const Number = styled(H2)`
+  margin: 0;
+  color: ${colors.main.primary};
 `
+const formatPercentage = (num?: number | null) =>
+  num ? `${num.toFixed(1).replace('.', ',')} %` : '–'
 
-const CardTitle = styled(Title)`
-  min-height: 50px;
-`
+interface OccupancyNumbersProps {
+  title: string
+  num3?: number | null
+  num6?: number | null
+}
 
-const RemoveBtn = styled.a`
-  position: absolute;
-  right: 0;
-  top: -2rem;
-`
+function OccupancyNumbers({ title, num3, num6 }: OccupancyNumbersProps) {
+  const { i18n } = useTranslation()
+  return (
+    <>
+      <Bold>{title}</Bold>
+      <Gap size="xs" />
+      <Numbers>
+        <div>
+          <InformationText>
+            3 {i18n.common.datetime.monthShort.toLowerCase()}
+          </InformationText>
+          <Number>{formatPercentage(num3)}</Number>
+        </div>
+        <div>
+          <InformationText>
+            6 {i18n.common.datetime.monthShort.toLowerCase()}
+          </InformationText>
+          <Number>{formatPercentage(num6)}</Number>
+        </div>
+      </Numbers>
+    </>
+  )
+}
 
-const Values = styled.div`
-  margin: 1rem 0;
+const Card = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: ${defaultMargins.s};
+
+  border: 2px solid ${colors.main.primary};
+  border-radius: 4px;
+  background: ${colors.greyscale.white};
+  box-shadow: 0 4px 4px 0 ${colors.greyscale.darkest}26; // 26 = 15 % opacity
+  padding: ${defaultMargins.L};
+  flex: 1 0 30%;
+  max-width: calc(33% - 1.5rem);
+  position: relative;
+  text-align: center;
 `
 
-const ValueHeading = styled.span`
-  font-weight: ${fontWeights.semibold};
-`
-
-const ValuePercentage = styled.span`
-  color: ${colors.greyscale.dark};
-  font-size: 3rem;
+const RemoveBtn = styled.div`
+  position: absolute;
+  top: 0;
+  right: 0;
 `
 
 const OccupancyContainer = styled.div`
-  height: 135px;
   display: flex;
   flex-direction: column;
   justify-content: center;
 `
-
-const Warning = styled.div`
-  color: ${colors.accents.orangeDark};
-  font-size: 0.75em;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: center;
-  align-items: center;
-`
-
-interface OccupancyValueProps {
-  type: 'confirmed' | 'planned'
-  heading: string
-  occupancy: Occupancy
-}
-
-function OccupancyValue({ type, heading, occupancy }: OccupancyValueProps) {
-  return (
-    <Values data-qa={`occupancies-maximum-${type}`}>
-      <ValueHeading>{heading}</ValueHeading>
-      <ValuePercentage>
-        {formatPercentage(occupancy.percentage)}
-      </ValuePercentage>
-    </Values>
-  )
-}
 
 async function getUnitOccupancies(
   unitId: UUID,
   startDate: LocalDate,
   endDate: LocalDate
-): Promise<Result<OccupancyResponse>> {
+): Promise<Result<OccupancyResponseSpeculated>> {
   const occupancyStartDate = startDate.isBefore(LocalDate.today())
     ? LocalDate.today()
     : startDate
   const maxDate = occupancyStartDate.addYears(1)
-  const occupancyEndDate = endDate.isAfter(maxDate) ? maxDate : endDate
-  return getOccupancyRates(
-    unitId,
-    occupancyStartDate,
-    occupancyEndDate,
-    'PLANNED'
+  const _occupancyEndDate = endDate.isAfter(maxDate) ? maxDate : endDate
+  // TODO api call
+  return Promise.resolve(
+    Success.of({
+      max3Months: {
+        caretakers: 5,
+        headcount: 25,
+        percentage: 99,
+        sum: 0
+      },
+      max3MonthsSpeculated: {
+        caretakers: 5,
+        headcount: 26,
+        percentage: 102.3,
+        sum: 0
+      },
+      max6Months: {
+        caretakers: 6,
+        headcount: 22,
+        percentage: 93.9,
+        sum: 0
+      },
+      max6MonthsSpeculated: {
+        caretakers: 6,
+        headcount: 23,
+        percentage: 97.2,
+        sum: 0
+      }
+    })
   )
 }
 
@@ -155,78 +164,70 @@ export default React.memo(function UnitCard({
     [unitId, startDate, endDate]
   )
 
-  const isRemovable = additionalUnits.map((item) => item.id).includes(unitId)
+  const isRemovable = additionalUnits.some((item) => item.id === unitId)
 
-  function removeUnit(id: UUID) {
-    setPlacement((prevPlacement) =>
-      prevPlacement.unitId === id
-        ? { ...prevPlacement, unitId: '' }
-        : prevPlacement
+  const removeUnit = useCallback(() => {
+    setPlacement((prev) =>
+      prev.unitId === unitId ? { ...prev, unitId: '' } : prev
     )
-    return setAdditionalUnits((prevUnits) => {
-      return prevUnits.filter((unit) => unit.id !== id)
-    })
-  }
+    setAdditionalUnits((prev) => prev.filter((unit) => unit.id !== unitId))
+  }, [setAdditionalUnits, setPlacement, unitId])
 
-  function selectUnit(unitId: UUID) {
-    setPlacement((prevPlacement) => ({
-      ...prevPlacement,
-      unitId
-    }))
-  }
+  const selectUnit = useCallback(
+    (unitId: UUID) => setPlacement((prev) => ({ ...prev, unitId })),
+    [setPlacement]
+  )
 
   return (
-    <Card
-      active={isSelectedUnit}
-      data-qa="placement-item"
-      data-isloading={isLoading(occupancies)}
-    >
+    <Card data-qa="placement-item" data-isloading={isLoading(occupancies)}>
       {isRemovable && (
-        <RemoveBtn role="button" onClick={() => removeUnit(unitId)}>
-          {i18n.placementDraft.card.remove}
+        <RemoveBtn role="button">
+          <CrossIconButton active={false} onClick={removeUnit} />
         </RemoveBtn>
       )}
-      <CardTitle size={3}>{unitName}</CardTitle>
-      <MarginBox>
-        <Link
-          to={`/units/${unitId}/unit-info?start=${startDate.formatIso()}`}
-          target="_blank"
-        >
-          {i18n.placementDraft.card.unitLink}
-        </Link>
-      </MarginBox>
+      <ExternalLink
+        href={`/employee/units/${unitId}/unit-info?start=${startDate.formatIso()}`}
+        text={<Title primary>{unitName}</Title>}
+        newTab
+      />
       <OccupancyContainer>
-        {renderResult(occupancies, (occupancies) =>
-          occupancies.max ? (
-            <OccupancyValue
-              type="planned"
-              heading={i18n.placementDraft.card.title}
-              occupancy={occupancies.max}
-            />
-          ) : (
-            <span>{i18n.unit.occupancy.noValidValues}</span>
+        {renderResult(occupancies, (occupancies) => {
+          if (!occupancies.max3Months || !occupancies.max6Months) {
+            return <span>{i18n.unit.occupancy.noValidValues}</span>
+          }
+          return (
+            <div>
+              <OccupancyNumbers
+                title={i18n.placementDraft.card.title}
+                num3={occupancies.max3Months.percentage}
+                num6={occupancies.max6Months.percentage}
+              />
+              <Gap size="s" />
+              <OccupancyNumbers
+                title={i18n.placementDraft.card.titleSpeculated}
+                num3={occupancies.max3MonthsSpeculated?.percentage}
+                num6={occupancies.max6MonthsSpeculated?.percentage}
+              />
+            </div>
           )
-        )}
+        })}
       </OccupancyContainer>
-      {displayGhostUnitWarning ? (
-        <Warning>
+      {displayGhostUnitWarning && (
+        <InformationText>
           {i18n.childInformation.placements.warning.ghostUnit}
           <UnderRowStatusIcon status="warning" />
-        </Warning>
-      ) : null}
-      <MarginBox>
-        <InlineButton
-          disabled={false}
-          data-qa="select-placement-unit"
-          onClick={() => selectUnit(unitId)}
-          icon={(isSelectedUnit && faCheck) || undefined}
-          text={
-            isSelectedUnit
-              ? i18n.placementDraft.selectedUnit
-              : i18n.common.select
-          }
-        />
-      </MarginBox>
+        </InformationText>
+      )}
+      <SelectionChip
+        data-qa="select-placement-unit"
+        onChange={(checked) => selectUnit(checked ? unitId : '')}
+        selected={isSelectedUnit}
+        text={
+          isSelectedUnit
+            ? i18n.placementDraft.selectedUnit
+            : i18n.placementDraft.selectUnit
+        }
+      />
     </Card>
   )
 })

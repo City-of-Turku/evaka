@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2020 City of Espoo
+// SPDX-FileCopyrightText: 2017-2022 City of Espoo
 //
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -6,6 +6,7 @@ import React, { Dispatch, SetStateAction } from 'react'
 import styled from 'styled-components'
 import { PublicUnit } from 'lib-common/generated/api-types/daycare'
 import LocalDate from 'lib-common/local-date'
+import { defaultMargins } from 'lib-components/white-space'
 import {
   DaycarePlacementPlan,
   PlacementDraft
@@ -14,7 +15,7 @@ import UnitCard from './UnitCard'
 
 const FlexContainer = styled.div`
   display: flex;
-  overflow-x: scroll;
+  gap: ${defaultMargins.L};
   flex-wrap: wrap;
 `
 
