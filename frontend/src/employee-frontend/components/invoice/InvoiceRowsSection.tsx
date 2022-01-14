@@ -55,6 +55,7 @@ const emptyInvoiceRow = (
   periodEnd: invoiceRow.periodEnd,
   product: 'DAYCARE' as const,
   description: '',
+  unitId: '',
   costCenter: '',
   subCostCenter: '',
   amount: 0,

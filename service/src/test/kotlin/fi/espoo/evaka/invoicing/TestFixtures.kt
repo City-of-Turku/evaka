@@ -146,18 +146,6 @@ val testDecision1 = FeeDecision(
     created = HelsinkiDateTime.now()
 )
 
-val testInvoiceRow = InvoiceRow(
-    id = InvoiceRowId(UUID.randomUUID()),
-    amount = 1,
-    child = ChildWithDateOfBirth(testChild2.id, testChild2.dateOfBirth),
-    periodStart = LocalDate.of(2019, 5, 1),
-    periodEnd = LocalDate.of(2019, 5, 31),
-    unitPrice = 28900,
-    costCenter = "31450",
-    subCostCenter = "01",
-    product = Product.DAYCARE
-)
-
 val testIncome = Income(
     id = IncomeId(UUID.randomUUID()),
     personId = PersonId(UUID.randomUUID()),
@@ -275,13 +263,13 @@ fun createVoucherValueDecisionFixture(
     finalCoPayment = coPayment + feeAlterations.sumOf { it.effect }
 )
 
-fun createInvoiceRowFixture(childId: ChildId) = InvoiceRow(
+fun createInvoiceRowFixture(childId: ChildId, unitId: DaycareId) = InvoiceRow(
     id = InvoiceRowId(UUID.randomUUID()),
     child = ChildWithDateOfBirth(childId, LocalDate.of(2017, 1, 1)),
     amount = 1,
     unitPrice = 28900,
     product = Product.DAYCARE,
-    costCenter = "200",
+    unitId = unitId,
     subCostCenter = "09",
     periodStart = LocalDate.of(2019, 1, 1),
     periodEnd = LocalDate.of(2019, 1, 31)

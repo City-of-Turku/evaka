@@ -72,7 +72,7 @@ class InvoiceIntegrationTest : FullApplicationTest() {
             status = InvoiceStatus.DRAFT,
             headOfFamilyId = testAdult_1.id,
             areaId = testArea.id,
-            rows = listOf(createInvoiceRowFixture(childId = testChild_1.id))
+            rows = listOf(createInvoiceRowFixture(childId = testChild_1.id, unitId = testDaycare.id))
         ),
         createInvoiceFixture(
             status = InvoiceStatus.SENT,
@@ -80,14 +80,14 @@ class InvoiceIntegrationTest : FullApplicationTest() {
             areaId = testArea.id,
             number = 5000000001L,
             period = DateRange(LocalDate.of(2020, 1, 1), LocalDate.of(2020, 1, 31)),
-            rows = listOf(createInvoiceRowFixture(childId = testChild_1.id))
+            rows = listOf(createInvoiceRowFixture(childId = testChild_1.id, unitId = testDaycare.id))
         ),
         createInvoiceFixture(
             status = InvoiceStatus.DRAFT,
             headOfFamilyId = testAdult_2.id,
             areaId = testArea.id,
             period = DateRange(LocalDate.of(2018, 1, 1), LocalDate.of(2018, 1, 31)),
-            rows = listOf(createInvoiceRowFixture(childId = testChild_2.id))
+            rows = listOf(createInvoiceRowFixture(childId = testChild_2.id, unitId = testDaycare.id))
         )
     )
 
@@ -558,7 +558,7 @@ class InvoiceIntegrationTest : FullApplicationTest() {
                 status = InvoiceStatus.DRAFT,
                 headOfFamilyId = testAdult_1.id,
                 areaId = testArea.id,
-                rows = listOf(createInvoiceRowFixture(childId = testChild_1.id))
+                rows = listOf(createInvoiceRowFixture(childId = testChild_1.id, unitId = testDaycare.id))
             )
         }
 
@@ -688,10 +688,10 @@ class InvoiceIntegrationTest : FullApplicationTest() {
             rows = original.rows.map {
                 it.copy(
                     description = "UPDATED",
-                    costCenter = "UPDATED",
+                    // costCenter = "UPDATED",
                     subCostCenter = "UPDATED"
                 )
-            } + createInvoiceRowFixture(testChild_1.id).copy(
+            } + createInvoiceRowFixture(testChild_1.id, testDaycare.id).copy(
                 product = Product.PRESCHOOL_WITH_DAYCARE,
                 amount = 100,
                 unitPrice = 100000

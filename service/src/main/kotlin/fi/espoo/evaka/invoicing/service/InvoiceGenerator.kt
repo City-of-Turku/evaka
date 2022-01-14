@@ -293,7 +293,7 @@ private fun toTemporaryPlacementInvoiceRows(
             child = child,
             amount = amount,
             unitPrice = price,
-            costCenter = codes.costCenter!!,
+            unitId = codes.unitId,
             subCostCenter = codes.subCostCenter,
             product = Product.TEMPORARY_CARE
         )
@@ -361,7 +361,7 @@ private fun toPermanentPlacementInvoiceRows(
                 periodStart = period.start,
                 periodEnd = period.end!!,
                 product = product,
-                costCenter = codes.costCenter!!,
+                unitId = codes.unitId,
                 subCostCenter = codes.subCostCenter,
                 amount = 1,
                 unitPrice = -price
@@ -372,7 +372,7 @@ private fun toPermanentPlacementInvoiceRows(
                 periodStart = period.start,
                 periodEnd = period.end!!,
                 product = product,
-                costCenter = codes.costCenter!!,
+                unitId = codes.unitId,
                 subCostCenter = codes.subCostCenter,
                 amount = dates.size,
                 unitPrice = -getDailyDiscount(period, price, operationalDays.generalCase)
@@ -389,7 +389,7 @@ private fun toPermanentPlacementInvoiceRows(
                     periodStart = period.start,
                     periodEnd = period.end!!,
                     product = it,
-                    costCenter = codes.costCenter!!,
+                    unitId = codes.unitId,
                     subCostCenter = codes.subCostCenter,
                     amount = amount,
                     unitPrice = BigDecimal(
@@ -413,7 +413,7 @@ private fun toPermanentPlacementInvoiceRows(
             periodEnd = period.end!!,
             amount = amount,
             unitPrice = unitPrice(price),
-            costCenter = codes.costCenter!!,
+            unitId = codes.unitId,
             subCostCenter = codes.subCostCenter,
             product = product
         )
@@ -424,7 +424,7 @@ private fun toPermanentPlacementInvoiceRows(
             periodEnd = period.end,
             child = child,
             product = getFeeAlterationProduct(product, feeAlterationType),
-            costCenter = codes.costCenter,
+            unitId = codes.unitId,
             subCostCenter = codes.subCostCenter,
             amount = amount,
             unitPrice = unitPrice(feeAlterationEffect)
@@ -723,11 +723,11 @@ fun Database.Read.getChildrenWithHeadOfFamilies(
 fun Database.Read.getDaycareCodes(): Map<DaycareId, DaycareCodes> {
     val sql =
         """
-        SELECT daycare.id, daycare.cost_center, area.id AS area_id, area.sub_cost_center
+        SELECT daycare.id AS unit_id, daycare.cost_center, area.id AS area_id, area.sub_cost_center
         FROM daycare INNER JOIN care_area AS area ON daycare.care_area_id = area.id
     """
     return createQuery(sql)
-        .map { row -> row.mapColumn<DaycareId>("id") to row.mapRow<DaycareCodes>() }
+        .map { row -> row.mapColumn<DaycareId>("unit_id") to row.mapRow<DaycareCodes>() }
         .toMap()
 }
 

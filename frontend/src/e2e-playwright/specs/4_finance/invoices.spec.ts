@@ -131,12 +131,14 @@ describe('Invoices', () => {
         fixtures.enduserGuardianFixture.id,
         fixtures.enduserChildFixtureJari.id,
         fixtures.careAreaFixture.id,
+        fixtures.daycareFixture.id,
         'DRAFT'
       ),
       invoiceFixture(
         fixtures.familyWithRestrictedDetailsGuardian.guardian.id,
         fixtures.familyWithRestrictedDetailsGuardian.children[0].id,
         fixtures.careAreaFixture.id,
+        fixtures.daycareFixture.id,
         'DRAFT'
       )
     ])
@@ -157,6 +159,7 @@ describe('Invoices', () => {
         adultWithoutSSN.id,
         fixtures.enduserChildFixtureJari.id,
         fixtures.careAreaFixture.id,
+        fixtures.daycareFixture.id,
         'DRAFT'
       )
     ])

@@ -368,7 +368,6 @@ export interface InvoicePayload {
 export interface InvoiceRow {
   amount: number
   child: ChildWithDateOfBirth
-  costCenter: string
   description: string
   id: UUID | null
   periodEnd: LocalDate
@@ -376,6 +375,7 @@ export interface InvoiceRow {
   price: number
   product: Product
   subCostCenter: string | null
+  unitId: UUID
   unitPrice: number
 }
 
@@ -393,6 +393,7 @@ export interface InvoiceRowDetailed {
   price: number
   product: Product
   subCostCenter: string | null
+  unitId: UUID
   unitPrice: number
 }
 

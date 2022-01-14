@@ -19,6 +19,7 @@ import fi.espoo.evaka.placement.PlacementType.SCHOOL_SHIFT_CARE
 import fi.espoo.evaka.placement.PlacementType.TEMPORARY_DAYCARE
 import fi.espoo.evaka.placement.PlacementType.TEMPORARY_DAYCARE_PART_DAY
 import fi.espoo.evaka.shared.AreaId
+import fi.espoo.evaka.shared.DaycareId
 import fi.espoo.evaka.shared.EvakaUserId
 import fi.espoo.evaka.shared.InvoiceId
 import fi.espoo.evaka.shared.InvoiceRowId
@@ -70,7 +71,7 @@ data class InvoiceRow(
     val periodStart: LocalDate,
     val periodEnd: LocalDate,
     val product: Product,
-    val costCenter: String,
+    val unitId: DaycareId,
     val subCostCenter: String?,
     val description: String = ""
 ) : RowWithPrice {
@@ -109,6 +110,7 @@ data class InvoiceRowDetailed(
     val periodStart: LocalDate,
     val periodEnd: LocalDate,
     val product: Product,
+    val unitId: DaycareId,
     val costCenter: String,
     val subCostCenter: String?,
     val description: String = ""
