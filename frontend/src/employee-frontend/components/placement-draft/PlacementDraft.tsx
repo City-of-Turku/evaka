@@ -41,10 +41,6 @@ import PlacementDraftRow from './PlacementDraftRow'
 import Placements from './Placements'
 import UnitCards from './UnitCards'
 
-const ContainerNarrow = styled(Container)`
-  max-width: 990px;
-`
-
 const SendButtonContainer = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -246,7 +242,7 @@ export default React.memo(function PlacementDraft({
   }
 
   return (
-    <ContainerNarrow
+    <Container
       data-qa="placement-draft-page"
       data-isloading={isLoading(placementDraft)}
     >
@@ -359,6 +355,6 @@ export default React.memo(function PlacementDraft({
           ) : null
         )}
       </ContentArea>
-    </ContainerNarrow>
+    </Container>
   )
 })

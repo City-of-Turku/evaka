@@ -12,14 +12,14 @@ import { UUID } from 'lib-common/types'
 import { useApiState } from 'lib-common/utils/useRestApi'
 import { SelectionChip } from 'lib-components/atoms/Chip'
 import ExternalLink from 'lib-components/atoms/ExternalLink'
-import UnderRowStatusIcon from 'lib-components/atoms/StatusIcon'
 import CrossIconButton from 'lib-components/atoms/buttons/CrossIconButton'
-import { Bold, H2, InformationText, Title } from 'lib-components/typography'
+import { Bold, H1, InformationText, Title } from 'lib-components/typography'
 import { defaultMargins, Gap } from 'lib-components/white-space'
 import colors from 'lib-customizations/common'
 import { useTranslation } from '../../state/i18n'
 import { DaycarePlacementPlan } from '../../types/placementdraft'
 import { renderResult } from '../async-rendering'
+import WarningLabel from '../common/WarningLabel'
 
 const Numbers = styled.div`
   display: flex;
@@ -27,7 +27,7 @@ const Numbers = styled.div`
   justify-content: space-evenly;
 `
 
-const Number = styled(H2)`
+const Number = styled(H1)`
   margin: 0;
   color: ${colors.main.primary};
 `
@@ -68,7 +68,6 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: ${defaultMargins.s};
 
   border: 2px solid ${colors.main.primary};
   border-radius: 4px;
@@ -190,6 +189,7 @@ export default React.memo(function UnitCard({
         text={<Title primary>{unitName}</Title>}
         newTab
       />
+      <Gap size="m" />
       <OccupancyContainer>
         {renderResult(occupancies, (occupancies) => {
           if (!occupancies.max3Months || !occupancies.max6Months) {
@@ -202,7 +202,7 @@ export default React.memo(function UnitCard({
                 num3={occupancies.max3Months.percentage}
                 num6={occupancies.max6Months.percentage}
               />
-              <Gap size="s" />
+              <Gap size="m" />
               <OccupancyNumbers
                 title={i18n.placementDraft.card.titleSpeculated}
                 num3={occupancies.max3MonthsSpeculated?.percentage}
@@ -212,11 +212,14 @@ export default React.memo(function UnitCard({
           )
         })}
       </OccupancyContainer>
+      <Gap size="XL" />
       {displayGhostUnitWarning && (
-        <InformationText>
-          {i18n.childInformation.placements.warning.ghostUnit}
-          <UnderRowStatusIcon status="warning" />
-        </InformationText>
+        <>
+          <WarningLabel
+            text={i18n.childInformation.placements.warning.ghostUnit}
+          />
+          <Gap size="s" />
+        </>
       )}
       <SelectionChip
         data-qa="select-placement-unit"

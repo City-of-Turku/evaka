@@ -792,7 +792,7 @@ export const fi = {
       },
       warning: {
         overlap: 'Ajalle on jo sijoitus',
-        ghostUnit: 'Yksikkö on merkitty haamuyksiköksi.'
+        ghostUnit: 'Yksikkö on merkitty haamuyksiköksi'
       },
       serviceNeeds: {
         title: 'Sijoituksen palveluntarpeet',
