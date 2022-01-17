@@ -117,16 +117,13 @@ export default React.memo(function PersonalDetails() {
 
             return (
               <>
-                {email === null && (
+                {(!email || !phone) && (
                   <AlertBox
-                    message={t.personalDetails.noEmailAlert}
-                    data-qa="missing-email-box"
-                  />
-                )}
-                {!phone && (
-                  <AlertBox
-                    message={t.personalDetails.noPhoneAlert}
-                    data-qa="missing-phone-box"
+                    message={[
+                      t.personalDetails.noEmailAlert,
+                      t.personalDetails.noPhoneAlert
+                    ].join('\n')}
+                    data-qa="missing-email-or-phone-box"
                   />
                 )}
                 <HorizontalLine />
