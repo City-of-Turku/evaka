@@ -11,6 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const names = [
   'saml-signing.idp.tunnistautuminen.suomi.fi.2024.pem',
   'saml-signing-testi.apro.tunnistus.fi.2024.pem'
+  'turkuad-internal-staging.pem',
+  'turkuad-internal-migration.pem',
+  'turkuad-internal-prod.pem'
 ] as const
 
 export type TrustedCertificates = (typeof names)[number]
