@@ -18,7 +18,7 @@ import { RedisClient } from 'redis'
 import redisCacheProvider from './passport-saml-cache-redis'
 import { Config } from '../config'
 
-const AD_OID_KEY =
+const AD_USER_ID_KEY =
   'http://schemas.microsoft.com/identity/claims/objectidentifier'
 const AD_GIVEN_NAME_KEY =
   'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname'
@@ -36,7 +36,7 @@ async function verifyProfile(
   const asString = (value: unknown) =>
     value == null ? undefined : String(value)
 
-  const aad = asString(profile[AD_OID_KEY])
+  const aad = asString(profile[AD_USER_ID_KEY])
   if (!aad) throw Error('No user ID in SAML data')
   const person = await employeeLogin({
     externalId: `${idPrefix}:${aad}`,
@@ -98,7 +98,7 @@ export default function createAdStrategy(
       )
       return verifyProfile(config.externalIdPrefix, {
         nameID: 'dummyid',
-        [AD_OID_KEY]: userId,
+        [AD_USER_ID_KEY]: userId,
         [AD_GIVEN_NAME_KEY]: employee.firstName,
         [AD_FAMILY_NAME_KEY]: employee.lastName,
         [AD_EMAIL_KEY]: employee.email ? employee.email : ''
@@ -122,7 +122,7 @@ export default function createAdStrategy(
       })
       return verifyProfile(config.externalIdPrefix, {
         nameID: 'dummyid',
-        [AD_OID_KEY]: userId,
+        [AD_USER_ID_KEY]: userId,
         [AD_GIVEN_NAME_KEY]: firstName,
         [AD_FAMILY_NAME_KEY]: lastName,
         [AD_EMAIL_KEY]: email
