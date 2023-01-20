@@ -30,16 +30,15 @@ const AD_EMPLOYEE_NUMBER_KEY =
   'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/employeenumber'
 
 async function verifyProfile(
-  idPrefix: string,
+  config: Config['ad'],
   profile: passportSaml.Profile
 ): Promise<SamlUser> {
   const asString = (value: unknown) =>
     value == null ? undefined : String(value)
-
-  const aad = asString(profile[AD_USER_ID_KEY])
-  if (!aad) throw Error('No user ID in SAML data')
+  const aad = asString(config.saml?.userIdKey)
+  if (!config.mock && !aad) throw Error('No user ID in SAML data')
   const person = await employeeLogin({
-    externalId: `${idPrefix}:${aad}`,
+    externalId: `${config.externalIdPrefix}:${aad}`,
     firstName: asString(profile[AD_GIVEN_NAME_KEY]) ?? '',
     lastName: asString(profile[AD_FAMILY_NAME_KEY]) ?? '',
     email: asString(profile[AD_EMAIL_KEY]),
@@ -96,7 +95,7 @@ export default function createAdStrategy(
       const employee = await getEmployeeByExternalId(
         `${config.externalIdPrefix}:${userId}`
       )
-      return verifyProfile(config.externalIdPrefix, {
+      return verifyProfile(config, {
         nameID: 'dummyid',
         [AD_USER_ID_KEY]: userId,
         [AD_GIVEN_NAME_KEY]: employee.firstName,
@@ -120,7 +119,7 @@ export default function createAdStrategy(
         externalId: `${config.externalIdPrefix}:${userId}`,
         roles: roles as UserRole[]
       })
-      return verifyProfile(config.externalIdPrefix, {
+      return verifyProfile(config, {
         nameID: 'dummyid',
         [AD_USER_ID_KEY]: userId,
         [AD_GIVEN_NAME_KEY]: firstName,
@@ -137,7 +136,7 @@ export default function createAdStrategy(
         if (!profile) {
           done(new Error('No SAML profile'))
         } else {
-          verifyProfile(config.externalIdPrefix, profile)
+          verifyProfile(config, profile)
             .then((user) => done(null, user))
             .catch(done)
         }

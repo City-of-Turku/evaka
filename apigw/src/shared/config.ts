@@ -35,7 +35,18 @@ export const toRedisClientOpts = (config: Config): redis.ClientOpts => ({
 
 export interface EvakaSamlConfig {
   callbackUrl: string
-  userIdKey? : string
+  [attributeName: string]: unknown
+  entryPoint: string
+  logoutUrl: string
+  issuer: string
+  publicCert: string | TrustedCertificates[]
+  privateCert: string
+  validateInResponseTo: boolean
+}
+
+export interface EvakaADSamlConfig {
+  callbackUrl: string
+  userIdKey: string
   entryPoint: string
   logoutUrl: string
   issuer: string
@@ -122,7 +133,8 @@ export function configFromEnv(): Config {
     ifNodeEnv(['local', 'test'], true) ??
     false
   const adCallbackUrl = process.env.AD_SAML_CALLBACK_URL
-  const defaultUSerIdKey = "http://schemas.microsoft.com/identity/claims/objectidentifier"
+  const defaultUserIdKey =
+    'http://schemas.microsoft.com/identity/claims/objectidentifier'
   const ad: Config['ad'] = {
     mock: adMock,
     externalIdPrefix: process.env.AD_SAML_EXTERNAL_ID_PREFIX ?? 'espoo-ad',
@@ -130,7 +142,7 @@ export function configFromEnv(): Config {
       adCallbackUrl && !adMock
         ? {
             callbackUrl: required(adCallbackUrl),
-            userIdKey: process.env.AD_USER_ID_KEY ?? defaultUSerIdKey,
+            userIdKey: process.env.AD_USER_ID_KEY ?? defaultUserIdKey,
             entryPoint: required(process.env.AD_SAML_ENTRYPOINT_URL),
             logoutUrl: required(process.env.AD_SAML_LOGOUT_URL),
             issuer: required(process.env.AD_SAML_ISSUER),
