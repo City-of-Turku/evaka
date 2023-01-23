@@ -63,7 +63,9 @@ export function createSamlConfig(
   if (config.mock) return { cert: 'mock-certificate' }
   if (!config.saml) throw Error('Missing AD SAML configuration')
 
-  const privateCert = readFileSync(config.saml.privateCert, {encoding: 'utf8'})
+  const privateCert = readFileSync(config.saml.privateCert, {
+    encoding: 'utf8'
+  })
 
   const samlConfig: SamlConfig = {
     acceptedClockSkewMs: 0,
