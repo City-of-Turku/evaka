@@ -18,8 +18,6 @@ import { RedisClient } from 'redis'
 import redisCacheProvider from './passport-saml-cache-redis'
 import { Config } from '../config'
 
-const AD_USER_ID_KEY =
-  'http://schemas.microsoft.com/identity/claims/objectidentifier'
 const AD_GIVEN_NAME_KEY =
   'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname'
 const AD_FAMILY_NAME_KEY =
@@ -35,7 +33,8 @@ async function verifyProfile(
 ): Promise<SamlUser> {
   const asString = (value: unknown) =>
     value == null ? undefined : String(value)
-  const aad = asString(config.saml?.userIdKey)
+
+  const aad = profile[config.userIdKey]
   if (!config.mock && !aad) throw Error('No user ID in SAML data')
   const person = await employeeLogin({
     externalId: `${config.externalIdPrefix}:${aad}`,
@@ -77,7 +76,7 @@ export function createSamlConfig(
       : config.saml.publicCert,
     disableRequestedAuthnContext: true,
     entryPoint: config.saml.entryPoint,
-    identifierFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
+    identifierFormat: config.nameIdFormat,
     issuer: config.saml.issuer,
     logoutUrl: config.saml.logoutUrl,
     privateKey: readFileSync(config.saml.privateCert, { encoding: 'utf8' }),
@@ -97,7 +96,7 @@ export default function createAdStrategy(
       )
       return verifyProfile(config, {
         nameID: 'dummyid',
-        [AD_USER_ID_KEY]: userId,
+        [config.userIdKey]: userId,
         [AD_GIVEN_NAME_KEY]: employee.firstName,
         [AD_FAMILY_NAME_KEY]: employee.lastName,
         [AD_EMAIL_KEY]: employee.email ? employee.email : ''
@@ -121,7 +120,7 @@ export default function createAdStrategy(
       })
       return verifyProfile(config, {
         nameID: 'dummyid',
-        [AD_USER_ID_KEY]: userId,
+        [config.userIdKey]: userId,
         [AD_GIVEN_NAME_KEY]: firstName,
         [AD_FAMILY_NAME_KEY]: lastName,
         [AD_EMAIL_KEY]: email
