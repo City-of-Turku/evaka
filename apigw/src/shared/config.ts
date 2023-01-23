@@ -11,6 +11,7 @@ export interface Config {
     externalIdPrefix: string
     userIdKey: string
     nameIdFormat: string
+    decryptAssertions: boolean
     saml: EvakaSamlConfig | undefined
   }
   sfi: {
@@ -132,6 +133,7 @@ export function configFromEnv(): Config {
     externalIdPrefix: process.env.AD_SAML_EXTERNAL_ID_PREFIX ?? 'espoo-ad',
     userIdKey: process.env.AD_USER_ID_KEY ?? defaultUserIdKey,
     nameIdFormat: process.env.AD_NAME_ID_FORMAT ?? defaultNameIdFormat,
+    decryptAssertions: env('AD_DECRYPT_ASSERTIONS', parseBoolean) ?? false,
     saml:
       adCallbackUrl && !adMock
         ? {

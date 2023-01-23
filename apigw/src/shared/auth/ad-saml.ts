@@ -62,7 +62,10 @@ export function createSamlConfig(
 ): SamlConfig {
   if (config.mock) return { cert: 'mock-certificate' }
   if (!config.saml) throw Error('Missing AD SAML configuration')
-  return {
+
+  const privateCert = readFileSync(config.saml.privateCert, {encoding: 'utf8'})
+
+  const samlConfig: SamlConfig = {
     acceptedClockSkewMs: 0,
     audience: config.saml.issuer,
     cacheProvider: redisClient
@@ -79,10 +82,16 @@ export function createSamlConfig(
     identifierFormat: config.nameIdFormat,
     issuer: config.saml.issuer,
     logoutUrl: config.saml.logoutUrl,
-    privateKey: readFileSync(config.saml.privateCert, { encoding: 'utf8' }),
+    privateKey: privateCert,
     signatureAlgorithm: 'sha256',
     validateInResponseTo: config.saml.validateInResponseTo
   }
+
+  if (config.decryptAssertions) {
+    samlConfig.decryptionPvk = privateCert
+  }
+
+  return samlConfig
 }
 
 export default function createAdStrategy(
