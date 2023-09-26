@@ -43,7 +43,7 @@ const queryKeys = createQueryKeys('reports', {
   ],
   vardaErrors: () => ['vardaErrors'],
   futurePreschoolers: () => ['futurePreschoolers'],
-  preschoolGroups: () => ['preschoolGroups'],
+  preschoolGroups: (municipal: boolean) => ['preschoolGroups', municipal],
   units: () => ['units']
 })
 
@@ -106,7 +106,7 @@ export const futurePreschoolersQuery = query({
 })
 
 export const preschoolGroupsQuery = query({
-  api: (municipal: boolean) => getPreschoolGroupsReport(municipal),
+  api: getPreschoolGroupsReport,
   queryKey: queryKeys.preschoolGroups
 })
 

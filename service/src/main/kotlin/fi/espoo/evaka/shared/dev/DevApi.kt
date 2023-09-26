@@ -153,6 +153,7 @@ import fi.espoo.evaka.shared.PedagogicalDocumentId
 import fi.espoo.evaka.shared.PersonId
 import fi.espoo.evaka.shared.PlacementId
 import fi.espoo.evaka.shared.PreschoolAssistanceId
+import fi.espoo.evaka.shared.PreschoolPickupAreaId
 import fi.espoo.evaka.shared.ServiceNeedId
 import fi.espoo.evaka.shared.ServiceNeedOptionId
 import fi.espoo.evaka.shared.StaffAttendanceRealtimeId
@@ -2284,4 +2285,14 @@ data class DevVardaOrganizerChild(
     val organizerOid: String = "organizerOid123",
     val uploadedAt: HelsinkiDateTime? = null,
     val vardaPersonId: Long = Random.nextLong()
+)
+
+data class DevPreschoolPickupArea(
+    val id: PreschoolPickupAreaId = PreschoolPickupAreaId(UUID.randomUUID()),
+    val municipalityCode: Int = 1,
+    val streetNameFi: String = "",
+    val streetNameSv: String = "",
+    val houseNumber: String = "",
+    val areaNameFi: String = "",
+    val areaNameSv: String = ""
 )
