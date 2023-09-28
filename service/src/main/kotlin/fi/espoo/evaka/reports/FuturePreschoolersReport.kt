@@ -7,6 +7,7 @@ package fi.espoo.evaka.reports
 import fi.espoo.evaka.Audit
 import fi.espoo.evaka.shared.ChildId
 import fi.espoo.evaka.shared.DatabaseTable
+import fi.espoo.evaka.shared.DaycareId
 import fi.espoo.evaka.shared.GroupId
 import fi.espoo.evaka.shared.auth.AuthenticatedUser
 import fi.espoo.evaka.shared.db.Database
@@ -70,14 +71,16 @@ fun Database.Read.getFuturePreschoolerRows(today: LocalDate): List<FuturePrescho
     createQuery<DatabaseTable> {
             sql(
                 """
-SELECT p.id, 
-    p.social_security_number AS child_ssn,
+SELECT
+    p.date_of_birth AS child_ssn,
+    p.id as child_id,
     p.last_name AS child_last_name,
     p.first_name AS child_first_name,
     p.street_address AS child_address,
     p.postal_code AS child_postal_code,
     upper(p.post_office) AS child_post_office,
     d.name AS unit_name,
+    d.id AS unit_id,
     d.street_address AS unit_address,
     d.postal_code AS unit_postal_code,
     upper(d.post_office) AS unit_post_office,
@@ -148,9 +151,11 @@ fun Database.Read.getPreschoolGroupsRows(
     createQuery<DatabaseTable> {
             sql(
                 """
-SELECT dg.id, 
-    d.name AS unit_name, 
-    dg.name AS group_name, 
+SELECT 
+    d.name AS unit_name,
+    d.id AS unit_id,
+    dg.name AS group_name,
+    dg.id AS group_id,
     d.street_address AS address, 
     d.postal_code AS postal_code, 
     d.post_office as post_office, 
@@ -172,14 +177,15 @@ CASE WHEN :municipal THEN d.provider_type = 'MUNICIPAL' ELSE d.provider_type != 
         .toList<PreschoolGroupsReportRow>()
 
 data class FuturePreschoolersReportRow(
-    val id: ChildId,
     val childSsn: String?,
+    val childId: ChildId,
     val childLastName: String,
     val childFirstName: String,
     val childAddress: String,
     val childPostalCode: String,
     val childPostOffice: String,
     val unitName: String,
+    val unitId: DaycareId,
     val unitAddress: String,
     val unitPostalCode: String,
     val unitPostOffice: String,
@@ -204,9 +210,10 @@ data class FuturePreschoolersReportRow(
 )
 
 data class PreschoolGroupsReportRow(
-    val id: GroupId,
     val unitName: String,
+    val unitId: DaycareId,
     val groupName: String,
+    val groupId: GroupId,
     val address: String,
     val postalCode: String,
     val postOffice: String,

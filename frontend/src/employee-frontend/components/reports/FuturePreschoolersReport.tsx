@@ -46,12 +46,14 @@ export default React.memo(function FuturePreschoolersReport() {
                 data={rows}
                 headers={[
                   { label: 'lapsen hetu', key: 'childSsn' },
+                  { label: 'lapsen id', key: 'childId' },
                   { label: 'lapsen sukunimi', key: 'childLastName' },
                   { label: 'lapsen etunimi', key: 'childFirstName' },
                   { label: 'lapsen osoite', key: 'childAddress' },
                   { label: 'postinumero', key: 'childPostalCode' },
                   { label: 'toimipaikka', key: 'childPostOffice' },
                   { label: 'toimintayksikkö', key: 'unitName' },
+                  { label: 'toimintayksikön id', key: 'unitId' },
                   { label: 'toimintayksikön osoite', key: 'unitAddress' },
                   { label: 'postinumero', key: 'unitPostalCode' },
                   { label: 'toimipaikka', key: 'unitPostOffice' },
@@ -111,7 +113,9 @@ export default React.memo(function FuturePreschoolersReport() {
                 data={rows}
                 headers={[
                   { label: 'Yksikön nimi', key: 'unitName' },
+                  { label: 'Yksikön id', key: 'unitId' },
                   { label: 'Ryhmän nimi', key: 'groupName' },
+                  { label: 'Ryhmän id', key: 'groupId' },
                   { label: 'Lähiosoite', key: 'address' },
                   { label: 'Postinumero', key: 'postalCode' },
                   { label: 'Postitoimipaikka', key: 'postOffice' },
@@ -138,7 +142,9 @@ export default React.memo(function FuturePreschoolersReport() {
                 data={rows}
                 headers={[
                   { label: 'Yksikön nimi', key: 'unitName' },
+                  { label: 'Yksikön id', key: 'unitId' },
                   { label: 'Ryhmän nimi', key: 'groupName' },
+                  { label: 'Ryhmän id', key: 'groupId' },
                   { label: 'Lähiosoite', key: 'address' },
                   { label: 'Postinumero', key: 'postalCode' },
                   { label: 'Postitoimipaikka', key: 'postOffice' },

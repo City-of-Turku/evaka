@@ -334,6 +334,7 @@ export interface FamilyDaycareMealReportResult {
 export interface FuturePreschoolersReportRow {
   childAddress: string
   childFirstName: string
+  childId: UUID
   childLastName: string
   childPostOffice: string
   childPostalCode: string
@@ -352,12 +353,12 @@ export interface FuturePreschoolersReportRow {
   guardian2Phone: string | null
   guardian2PostOffice: string | null
   guardian2PostalCode: string | null
-  id: UUID
   languageEmphasisGroup: string | null
   shiftCare: boolean
   twoYearPreschool: boolean
   unitAddress: string
   unitArea: string | null
+  unitId: UUID
   unitName: string
   unitPostOffice: string
   unitPostalCode: string
@@ -583,13 +584,14 @@ export interface PlacementSketchingReportRow {
 export interface PreschoolGroupsReportRow {
   address: string
   amongSchool: boolean | null
+  groupId: UUID
   groupName: string
   groupSize: number
-  id: UUID
   languageEmphasis: boolean | null
   postOffice: string
   postalCode: string
   shiftCare: boolean
+  unitId: UUID
   unitName: string
 }
 
