@@ -380,6 +380,7 @@ enum class Audit(
     PlacementServiceNeedUpdate,
     PlacementTerminate,
     PlacementChildPlacementPeriodsRead,
+    PlacementTool,
     PreschoolAssistanceCreate,
     PreschoolAssistanceUpdate,
     PreschoolAssistanceDelete,

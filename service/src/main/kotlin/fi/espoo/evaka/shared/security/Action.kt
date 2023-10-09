@@ -304,7 +304,8 @@ sealed interface Action {
         SUBMIT_PATU_REPORT,
         READ_FUTURE_PRESCHOOLERS(HasGlobalRole(ADMIN)),
         READ_NON_SSN_CHILDREN_REPORT(HasGlobalRole(ADMIN, FINANCE_ADMIN, SERVICE_WORKER)),
-        VARDA_OPERATIONS(HasGlobalRole(ADMIN));
+        VARDA_OPERATIONS(HasGlobalRole(ADMIN)),
+        PLACEMENT_TOOL_PAGE(HasGlobalRole(ADMIN));
 
         override fun toString(): String = "${javaClass.name}.$name"
     }

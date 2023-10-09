@@ -5,6 +5,10 @@
 package fi.espoo.evaka.application
 
 import fi.espoo.evaka.Audit
+import fi.espoo.evaka.daycare.Daycare
+import fi.espoo.evaka.daycare.getDaycare
+import fi.espoo.evaka.daycare.getDaycareGroup
+import fi.espoo.evaka.daycare.getPreschoolTerms
 import fi.espoo.evaka.decision.Decision
 import fi.espoo.evaka.decision.DecisionDraft
 import fi.espoo.evaka.decision.DecisionDraftUpdate
@@ -17,21 +21,27 @@ import fi.espoo.evaka.identity.ExternalIdentifier
 import fi.espoo.evaka.invoicing.controller.parseUUID
 import fi.espoo.evaka.pis.controllers.CreatePersonBody
 import fi.espoo.evaka.pis.createPerson
+import fi.espoo.evaka.pis.getParentships
 import fi.espoo.evaka.pis.getPersonById
 import fi.espoo.evaka.pis.service.PersonJSON
 import fi.espoo.evaka.pis.service.PersonService
+import fi.espoo.evaka.pis.service.getChildGuardians
 import fi.espoo.evaka.placement.PlacementPlanConfirmationStatus
 import fi.espoo.evaka.placement.PlacementPlanDetails
 import fi.espoo.evaka.placement.PlacementPlanDraft
 import fi.espoo.evaka.placement.PlacementPlanRejectReason
 import fi.espoo.evaka.placement.PlacementPlanService
+import fi.espoo.evaka.placement.PlacementType
 import fi.espoo.evaka.placement.getPlacementPlanUnitName
 import fi.espoo.evaka.placement.getPlacementPlans
+import fi.espoo.evaka.placement.getPlacementsForChildDuring
 import fi.espoo.evaka.shared.ApplicationId
 import fi.espoo.evaka.shared.ChildId
 import fi.espoo.evaka.shared.DaycareId
 import fi.espoo.evaka.shared.DecisionId
+import fi.espoo.evaka.shared.GroupId
 import fi.espoo.evaka.shared.PersonId
+import fi.espoo.evaka.shared.ServiceNeedOptionId
 import fi.espoo.evaka.shared.auth.AccessControlList
 import fi.espoo.evaka.shared.auth.AuthenticatedUser
 import fi.espoo.evaka.shared.auth.UserRole
@@ -46,14 +56,20 @@ import fi.espoo.evaka.shared.domain.NotFound
 import fi.espoo.evaka.shared.security.AccessControl
 import fi.espoo.evaka.shared.security.Action
 import fi.espoo.evaka.shared.security.upsertCitizenUser
+import java.io.InputStream
 import java.time.LocalDate
+import java.util.UUID
+import org.apache.commons.csv.CSVFormat
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.multipart.MultipartFile
 
 enum class ApplicationTypeToggle {
     CLUB,
@@ -115,6 +131,11 @@ enum class VoucherApplicationFilter {
     NO_VOUCHER
 }
 
+enum class PlacementToolCsvField(val column: Int) {
+    CHILD_ID(2),
+    PRESCHOOL_GROUP_ID(33)
+}
+
 @RestController
 @RequestMapping("/v2/applications")
 class ApplicationControllerV2(
@@ -141,59 +162,7 @@ class ApplicationControllerV2(
                         Action.Global.CREATE_PAPER_APPLICATION
                     )
 
-                    val child =
-                        tx.getPersonById(body.childId)
-                            ?: throw BadRequest("Could not find the child with id ${body.childId}")
-
-                    val guardianId =
-                        body.guardianId
-                            ?: if (!body.guardianSsn.isNullOrEmpty()) {
-                                personService
-                                    .getOrCreatePerson(
-                                        tx,
-                                        user,
-                                        ExternalIdentifier.SSN.getInstance(body.guardianSsn)
-                                    )
-                                    ?.id
-                                    ?: throw BadRequest(
-                                        "Could not find the guardian with ssn ${body.guardianSsn}"
-                                    )
-                            } else if (body.guardianToBeCreated != null) {
-                                createPerson(tx, body.guardianToBeCreated)
-                            } else {
-                                throw BadRequest(
-                                    "Could not find guardian info from paper application request for ${body.childId}"
-                                )
-                            }
-
-                    val guardian =
-                        tx.getPersonById(guardianId)
-                            ?: throw BadRequest("Could not find the guardian with id $guardianId")
-
-                    // If the guardian has never logged in to eVaka, evaka_user might not contain a
-                    // row for them yet
-                    tx.upsertCitizenUser(guardianId)
-
-                    val id =
-                        tx.insertApplication(
-                            type = body.type,
-                            guardianId = guardianId,
-                            childId = body.childId,
-                            origin = ApplicationOrigin.PAPER,
-                            hideFromGuardian = body.hideFromGuardian,
-                            sentDate = body.sentDate,
-                        )
-                    applicationStateService.initializeApplicationForm(
-                        tx,
-                        user,
-                        clock.today(),
-                        clock.now(),
-                        id,
-                        body.type,
-                        guardian,
-                        child
-                    )
-                    Pair(guardianId, id)
+                    savePaperApplication(tx, user, clock, body)
                 }
             }
         Audit.ApplicationCreate.log(
@@ -202,6 +171,97 @@ class ApplicationControllerV2(
             meta = mapOf("guardianId" to guardianId, "applicationType" to body.type)
         )
         return applicationId
+    }
+
+    @PostMapping("/placement-tool", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun createPlacementToolApplications(
+        db: Database,
+        user: AuthenticatedUser,
+        clock: EvakaClock,
+        @RequestPart("file") file: MultipartFile
+    ): UUID {
+        db.connect { dbc ->
+            dbc.transaction { tx ->
+                val nextTerm =
+                    tx.getPreschoolTerms().firstOrNull { it.finnishPreschool.start > clock.today() }
+
+                val placements = parsePlacementToolCsv(file.inputStream)
+                placements
+                    .forEach { row ->
+                        val guardianIds = tx.getChildGuardians(row.childId)
+                        val guardianId =
+                            guardianIds.find { id ->
+                                id ==
+                                    tx.getParentships(headOfChildId = null, childId = row.childId)
+                                        .firstOrNull()
+                                        ?.headOfChildId
+                            }
+                                ?: guardianIds.first()
+
+                        // save paper application
+                        val (_, applicationId) =
+                            savePaperApplication(
+                                tx,
+                                user,
+                                clock,
+                                PaperApplicationCreateRequest(
+                                    childId = row.childId,
+                                    guardianId = guardianId,
+                                    guardianToBeCreated = null,
+                                    guardianSsn = null,
+                                    type = ApplicationType.PRESCHOOL,
+                                    sentDate = clock.today(),
+                                    hideFromGuardian = false,
+                                    transferApplication = false
+                                )
+                            )
+
+                        val application = tx.fetchApplicationDetails(applicationId)!!
+                        val preferredGroup = tx.getDaycareGroup(row.preschoolGroupId)!!
+                        val preferredUnit = tx.getDaycare(preferredGroup.daycareId)!!
+                        val placement =
+                            tx.getPlacementsForChildDuring(row.childId, clock.today(), null)
+                                .firstOrNull()
+                        val preparatory =
+                            placement?.type in
+                                listOf(PlacementType.PREPARATORY, PlacementType.PREPARATORY_DAYCARE)
+
+                        updateApplicationPreferences(
+                            tx,
+                            user,
+                            clock,
+                            application,
+                            preferredUnit,
+                            preparatory
+                        )
+
+                        // update status
+                        tx.updateApplicationStatus(
+                            application.id,
+                            ApplicationStatus.WAITING_PLACEMENT
+                        )
+
+                        // create placement plan
+                        val placementPlan =
+                            DaycarePlacementPlan(
+                                unitId = preferredUnit.id,
+                                period = nextTerm?.finnishPreschool!!,
+                                preschoolDaycarePeriod =
+                                    preparatory.let { nextTerm.finnishPreschool }
+                            )
+                        applicationStateService.createPlacementPlan(
+                            tx,
+                            user,
+                            applicationId,
+                            placementPlan
+                        )
+                    }
+                    .also { Audit.PlacementTool.log(meta = mapOf("total" to placements.size)) }
+            }
+        }
+
+        // this is needed for fileUpload component
+        return UUID.randomUUID()
     }
 
     @PostMapping("/search")
@@ -803,6 +863,142 @@ class ApplicationControllerV2(
             }
             .also { Audit.UnitApplicationsRead.log(targetId = unitId) }
     }
+
+    private fun savePaperApplication(
+        tx: Database.Transaction,
+        user: AuthenticatedUser,
+        clock: EvakaClock,
+        paper: PaperApplicationCreateRequest
+    ): Pair<PersonId, ApplicationId> {
+        val child =
+            tx.getPersonById(paper.childId)
+                ?: throw BadRequest("Could not find the child with id ${paper.childId}")
+
+        val guardianId =
+            paper.guardianId
+                ?: if (!paper.guardianSsn.isNullOrEmpty()) {
+                    personService
+                        .getOrCreatePerson(
+                            tx,
+                            user,
+                            ExternalIdentifier.SSN.getInstance(paper.guardianSsn)
+                        )
+                        ?.id
+                        ?: throw BadRequest(
+                            "Could not find the guardian with ssn ${paper.guardianSsn}"
+                        )
+                } else if (paper.guardianToBeCreated != null) {
+                    createPerson(tx, paper.guardianToBeCreated)
+                } else {
+                    throw BadRequest(
+                        "Could not find guardian info from paper application request for ${paper.childId}"
+                    )
+                }
+
+        val guardian =
+            tx.getPersonById(guardianId)
+                ?: throw BadRequest("Could not find the guardian with id $guardianId")
+
+        // If the guardian has never logged in to eVaka, evaka_user might not contain a
+        // row for them yet
+        tx.upsertCitizenUser(guardianId)
+
+        val id =
+            tx.insertApplication(
+                type = paper.type,
+                guardianId = guardianId,
+                childId = paper.childId,
+                origin = ApplicationOrigin.PAPER,
+                hideFromGuardian = paper.hideFromGuardian,
+                sentDate = paper.sentDate,
+            )
+        applicationStateService.initializeApplicationForm(
+            tx,
+            user,
+            clock.today(),
+            clock.now(),
+            id,
+            paper.type,
+            guardian,
+            child
+        )
+        return Pair(guardianId, id)
+    }
+
+    private fun parsePlacementToolCsv(inputStream: InputStream): List<PlacementToolData> =
+        CSVFormat.Builder.create(CSVFormat.DEFAULT)
+            .apply { setIgnoreSurroundingSpaces(true) }
+            .build()
+            .parse(inputStream.reader())
+            .drop(1) // ignore header row
+            .map { row ->
+                PlacementToolData(
+                    childId = ChildId(UUID.fromString(row[PlacementToolCsvField.CHILD_ID])),
+                    preschoolGroupId =
+                        GroupId(UUID.fromString(row[PlacementToolCsvField.PRESCHOOL_GROUP_ID]))
+                )
+            }
+
+    private fun updateApplicationPreferences(
+        tx: Database.Transaction,
+        user: AuthenticatedUser,
+        clock: EvakaClock,
+        application: ApplicationDetails,
+        preferredUnit: Daycare,
+        preparatory: Boolean
+    ) {
+
+        // update preferences to application
+        val updatedApplication =
+            application.copy(
+                form =
+                    application.form.copy(
+                        preferences =
+                            when (preparatory) {
+                                true ->
+                                    application.form.preferences.copy(
+                                        preferredUnits =
+                                            listOf(
+                                                PreferredUnit(preferredUnit.id, preferredUnit.name)
+                                            ),
+                                        serviceNeed =
+                                            ServiceNeed(
+                                                startTime = "07:00",
+                                                endTime = "17:00",
+                                                shiftCare = false,
+                                                partTime = false,
+                                                serviceNeedOption =
+                                                    ServiceNeedOption(
+                                                        id = ServiceNeedOptionId(UUID.randomUUID()),
+                                                        nameFi = "",
+                                                        nameSv = "",
+                                                        nameEn = "",
+                                                        validPlacementType =
+                                                            PlacementType.PRESCHOOL_DAYCARE
+                                                    )
+                                            )
+                                    )
+                                false ->
+                                    application.form.preferences.copy(
+                                        preferredUnits =
+                                            listOf(
+                                                PreferredUnit(preferredUnit.id, preferredUnit.name)
+                                            )
+                                    )
+                            }
+                    )
+            )
+
+        applicationStateService.updateApplicationContentsServiceWorker(
+            tx,
+            user,
+            application.id,
+            ApplicationUpdate(form = ApplicationFormUpdate.from(updatedApplication.form)),
+            user.evakaUserId,
+            clock.today(),
+            clock.now()
+        )
+    }
 }
 
 data class PaperApplicationCreateRequest(
@@ -886,3 +1082,5 @@ data class UnitApplications(
     val placementPlans: List<PlacementPlanDetails>,
     val applications: List<ApplicationUnitSummary>
 )
+
+data class PlacementToolData(val childId: ChildId, val preschoolGroupId: GroupId)

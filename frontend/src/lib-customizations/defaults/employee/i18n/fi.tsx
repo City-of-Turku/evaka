@@ -55,7 +55,8 @@ export const fi = {
     vasuPage: 'Vasu',
     vasuTemplates: 'Vasu-pohjat',
     childDocument: 'Lapsen pedagoginen lomake',
-    assistanceNeedDecision: 'Päätös tuesta varhaiskasvatuksessa'
+    assistanceNeedDecision: 'Päätös tuesta varhaiskasvatuksessa',
+    placementTool: 'Optimointityökalu'
   },
   common: {
     yes: 'Kyllä',
@@ -4426,6 +4427,40 @@ export const fi = {
       'Voit määritellä eVakassa käytössä olevan kutsumanimesi. Kutsumanimen tulee olla jokin etunimistäsi. Jos nimesi on vaihtunut ja sinulla on tarve päivittää eVakaan uusi nimesi, ole yhteydessä Espoon HelpDeskiin.',
     select: 'Valitse kutsumanimi',
     confirm: 'Vahvista'
+  },
+  placementTool: {
+    title: 'Optimointityökalu',
+    description:
+      'Voit luoda optimointityökalulla tuotetuista sijoitusehdotuksista hakemukset eVakaan. Hakemukset luodaan suoraan odottamaan päätöstä.',
+    fileUpload: {
+      upload: {
+        loading: 'Ladataan...',
+        loaded: 'Ladattu',
+        error: {
+          EXTENSION_MISSING: 'Tiedostopääte puuttuu',
+          EXTENSION_INVALID: 'Virheellinen tiedostopääte',
+          INVALID_CONTENT_TYPE: 'Virheellinen tiedostomuoto',
+          FILE_TOO_LARGE: 'Liian suuri tiedosto (max. 10MB)',
+          SERVER_ERROR: 'Lataus ei onnistunut'
+        },
+        input: {
+          title: 'Lisää tiedosto',
+          text: [
+            'Paina tästä tai raahaa tiedosto laatikkoon.',
+            'Tiedoston maksimikoko: 10MB.',
+            'Sallitut tiedostomuodot:',
+            'CSV'
+          ]
+        },
+        deleteFile: 'Poista tiedosto'
+      },
+      download: {
+        modalHeader: 'Tiedoston käsittely on kesken',
+        modalMessage:
+          'Tiedosto ei ole juuri nyt avattavissa. Kokeile hetken kuluttua uudelleen.',
+        modalClose: 'Sulje'
+      }
+    }
   },
   components
 }

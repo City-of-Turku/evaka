@@ -17,6 +17,7 @@ enum class ContentTypePattern(
     JPEG("image", "jpeg", setOf("jpg", "jpeg")),
     PNG("image", "png", setOf("png")),
     PDF("application", "pdf", setOf("pdf")),
+    CSV("text", "csv", setOf("csv")),
     MSWORD("application", "msword", setOf("doc")),
     MSWORD_DOCX(
         "application",

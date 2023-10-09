@@ -127,6 +127,7 @@ dependencies {
     implementation("io.opentracing:opentracing-api")
     implementation("io.opentracing:opentracing-util")
     implementation("jakarta.annotation:jakarta.annotation-api")
+    implementation("org.apache.commons:commons-csv")
     implementation("org.apache.commons:commons-pool2")
     implementation("org.apache.commons:commons-text")
     implementation("org.glassfish.jaxb:jaxb-runtime")
