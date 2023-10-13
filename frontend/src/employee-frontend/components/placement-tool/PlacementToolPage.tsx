@@ -25,8 +25,7 @@ export default React.memo(function PlacementToolPage() {
           onUpload={uploadPlacementFile}
           onDelete={deletePlacementFile}
           getDownloadUrl={() => ''}
-          // i18n={i18n.placementTool.fileUpload}
-          accept={['text/csv']}
+          allowedFileTypes={['csv']}
         />
       </ContentArea>
     </Container>
