@@ -127,11 +127,12 @@ LEFT JOIN (
 LEFT JOIN service_need sn ON sn.placement_id = p.id and sn.start_date < :today AND sn.end_date >= :today
 LEFT JOIN service_need_option sno on sn.option_id = sno.id
 LEFT JOIN LATERAL (
---    SELECT DISTINCT area_name_fi AS unit_area
---    FROM preschool_pickup_area
---    WHERE p.street_address ~ (street_name_fi || '\s+' || house_number || '($|\s)') OR
---        p.street_address ~ (street_name_sv || '\s+' || house_number || '($|\s)') 
-    SELECT '' as unit_area -- temporarily disabled
+    SELECT DISTINCT area_name_fi AS unit_area
+    FROM preschool_pickup_area
+    WHERE p.street_address like street_name_fi || ' ' || house_number OR
+        starts_with(p.street_address, street_name_fi || ' ' || house_number || ' ') OR
+        p.street_address like street_name_sv || ' ' || house_number OR
+        starts_with(p.street_address, street_name_sv || ' ' || house_number || ' ') 
 ) ppa ON TRUE
 WHERE CASE WHEN sno.name_fi like 'Kaksivuotinen%' THEN
     extract(year from :today) -  extract(year from p.date_of_birth) = $preschoolSelectionAge - 1
