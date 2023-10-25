@@ -8,7 +8,6 @@ import fi.espoo.evaka.Audit
 import fi.espoo.evaka.daycare.Daycare
 import fi.espoo.evaka.daycare.getDaycare
 import fi.espoo.evaka.daycare.getDaycareGroup
-import fi.espoo.evaka.daycare.getPreschoolTerms
 import fi.espoo.evaka.decision.Decision
 import fi.espoo.evaka.decision.DecisionDraft
 import fi.espoo.evaka.decision.DecisionDraftUpdate
@@ -35,13 +34,13 @@ import fi.espoo.evaka.placement.PlacementType
 import fi.espoo.evaka.placement.getPlacementPlanUnitName
 import fi.espoo.evaka.placement.getPlacementPlans
 import fi.espoo.evaka.placement.getPlacementsForChildDuring
+import fi.espoo.evaka.serviceneed.getServiceNeedOptionPublicInfos
 import fi.espoo.evaka.shared.ApplicationId
 import fi.espoo.evaka.shared.ChildId
 import fi.espoo.evaka.shared.DaycareId
 import fi.espoo.evaka.shared.DecisionId
 import fi.espoo.evaka.shared.GroupId
 import fi.espoo.evaka.shared.PersonId
-import fi.espoo.evaka.shared.ServiceNeedOptionId
 import fi.espoo.evaka.shared.auth.AccessControlList
 import fi.espoo.evaka.shared.auth.AuthenticatedUser
 import fi.espoo.evaka.shared.auth.UserRole
@@ -182,9 +181,18 @@ class ApplicationControllerV2(
     ): UUID {
         db.connect { dbc ->
             dbc.transaction { tx ->
-                val nextTerm =
-                    tx.getPreschoolTerms().firstOrNull { it.finnishPreschool.start > clock.today() }
-
+                val defaultServiceNeedOption =
+                    tx.getServiceNeedOptionPublicInfos(listOf(PlacementType.PRESCHOOL_DAYCARE))
+                        .firstOrNull()
+                        ?.let {
+                            ServiceNeedOption(
+                                id = it.id,
+                                nameFi = it.nameFi,
+                                nameSv = it.nameSv,
+                                nameEn = it.nameEn,
+                                validPlacementType = it.validPlacementType
+                            )
+                        }
                 val placements = parsePlacementToolCsv(file.inputStream)
                 placements
                     .forEach { row ->
@@ -219,11 +227,11 @@ class ApplicationControllerV2(
                         val application = tx.fetchApplicationDetails(applicationId)!!
                         val preferredGroup = tx.getDaycareGroup(row.preschoolGroupId)!!
                         val preferredUnit = tx.getDaycare(preferredGroup.daycareId)!!
-                        val placement =
+                        val currentPlacement =
                             tx.getPlacementsForChildDuring(row.childId, clock.today(), null)
                                 .firstOrNull()
                         val preparatory =
-                            placement?.type in
+                            currentPlacement?.type in
                                 listOf(PlacementType.PREPARATORY, PlacementType.PREPARATORY_DAYCARE)
 
                         updateApplicationPreferences(
@@ -232,28 +240,8 @@ class ApplicationControllerV2(
                             clock,
                             application,
                             preferredUnit,
-                            preparatory
-                        )
-
-                        // update status
-                        tx.updateApplicationStatus(
-                            application.id,
-                            ApplicationStatus.WAITING_PLACEMENT
-                        )
-
-                        // create placement plan
-                        val placementPlan =
-                            DaycarePlacementPlan(
-                                unitId = preferredUnit.id,
-                                period = nextTerm?.finnishPreschool!!,
-                                preschoolDaycarePeriod =
-                                    preparatory.let { nextTerm.finnishPreschool }
-                            )
-                        applicationStateService.createPlacementPlan(
-                            tx,
-                            user,
-                            applicationId,
-                            placementPlan
+                            preparatory,
+                            defaultServiceNeedOption
                         )
                     }
                     .also { Audit.PlacementTool.log(meta = mapOf("total" to placements.size)) }
@@ -945,7 +933,8 @@ class ApplicationControllerV2(
         clock: EvakaClock,
         application: ApplicationDetails,
         preferredUnit: Daycare,
-        preparatory: Boolean
+        preparatory: Boolean,
+        defaultServiceNeedOption: ServiceNeedOption?
     ) {
 
         // update preferences to application
@@ -954,38 +943,23 @@ class ApplicationControllerV2(
                 form =
                     application.form.copy(
                         preferences =
-                            when (preparatory) {
-                                true ->
-                                    application.form.preferences.copy(
-                                        preferredUnits =
-                                            listOf(
-                                                PreferredUnit(preferredUnit.id, preferredUnit.name)
-                                            ),
-                                        serviceNeed =
-                                            ServiceNeed(
-                                                startTime = "07:00",
-                                                endTime = "17:00",
-                                                shiftCare = false,
-                                                partTime = false,
-                                                serviceNeedOption =
-                                                    ServiceNeedOption(
-                                                        id = ServiceNeedOptionId(UUID.randomUUID()),
-                                                        nameFi = "",
-                                                        nameSv = "",
-                                                        nameEn = "",
-                                                        validPlacementType =
-                                                            PlacementType.PRESCHOOL_DAYCARE
-                                                    )
-                                            )
-                                    )
-                                false ->
-                                    application.form.preferences.copy(
-                                        preferredUnits =
-                                            listOf(
-                                                PreferredUnit(preferredUnit.id, preferredUnit.name)
-                                            )
-                                    )
-                            }
+                            application.form.preferences.copy(
+                                preferredUnits =
+                                    listOf(PreferredUnit(preferredUnit.id, preferredUnit.name)),
+                                serviceNeed =
+                                    if (preparatory) {
+                                        ServiceNeed(
+                                            startTime = "07:00",
+                                            endTime = "17:00",
+                                            shiftCare = false,
+                                            partTime = false,
+                                            serviceNeedOption = defaultServiceNeedOption
+                                        )
+                                    } else {
+                                        null
+                                    },
+                                urgent = false
+                            )
                     )
             )
 
