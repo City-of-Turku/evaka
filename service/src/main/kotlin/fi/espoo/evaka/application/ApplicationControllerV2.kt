@@ -6,8 +6,10 @@ package fi.espoo.evaka.application
 
 import fi.espoo.evaka.Audit
 import fi.espoo.evaka.daycare.Daycare
+import fi.espoo.evaka.daycare.PreschoolTerm
 import fi.espoo.evaka.daycare.getDaycare
 import fi.espoo.evaka.daycare.getDaycareGroup
+import fi.espoo.evaka.daycare.getPreschoolTerms
 import fi.espoo.evaka.decision.Decision
 import fi.espoo.evaka.decision.DecisionDraft
 import fi.espoo.evaka.decision.DecisionDraftUpdate
@@ -130,9 +132,9 @@ enum class VoucherApplicationFilter {
     NO_VOUCHER
 }
 
-enum class PlacementToolCsvField(val column: Int) {
-    CHILD_ID(2),
-    PRESCHOOL_GROUP_ID(33)
+enum class PlacementToolCsvField(val fieldName: String) {
+    CHILD_ID("lapsen id"),
+    PRESCHOOL_GROUP_ID("esiopetusryhma_id")
 }
 
 @RestController
@@ -193,6 +195,8 @@ class ApplicationControllerV2(
                                 validPlacementType = it.validPlacementType
                             )
                         }
+                val nextPreschoolTerm =
+                    tx.getPreschoolTerms().first { it.finnishPreschool.start > clock.today() }
                 val placements = parsePlacementToolCsv(file.inputStream)
                 placements
                     .forEach { row ->
@@ -241,7 +245,8 @@ class ApplicationControllerV2(
                             application,
                             preferredUnit,
                             preparatory,
-                            defaultServiceNeedOption
+                            defaultServiceNeedOption,
+                            nextPreschoolTerm
                         )
                     }
                     .also { Audit.PlacementTool.log(meta = mapOf("total" to placements.size)) }
@@ -915,15 +920,18 @@ class ApplicationControllerV2(
 
     private fun parsePlacementToolCsv(inputStream: InputStream): List<PlacementToolData> =
         CSVFormat.Builder.create(CSVFormat.DEFAULT)
+            .setHeader()
             .apply { setIgnoreSurroundingSpaces(true) }
             .build()
             .parse(inputStream.reader())
-            .drop(1) // ignore header row
             .map { row ->
                 PlacementToolData(
-                    childId = ChildId(UUID.fromString(row[PlacementToolCsvField.CHILD_ID])),
+                    childId =
+                        ChildId(UUID.fromString(row.get(PlacementToolCsvField.CHILD_ID.fieldName))),
                     preschoolGroupId =
-                        GroupId(UUID.fromString(row[PlacementToolCsvField.PRESCHOOL_GROUP_ID]))
+                        GroupId(
+                            UUID.fromString(row.get(PlacementToolCsvField.PRESCHOOL_GROUP_ID.fieldName))
+                        )
                 )
             }
 
@@ -934,7 +942,8 @@ class ApplicationControllerV2(
         application: ApplicationDetails,
         preferredUnit: Daycare,
         preparatory: Boolean,
-        defaultServiceNeedOption: ServiceNeedOption?
+        defaultServiceNeedOption: ServiceNeedOption?,
+        preschoolTerm: PreschoolTerm
     ) {
 
         // update preferences to application
@@ -944,6 +953,7 @@ class ApplicationControllerV2(
                     application.form.copy(
                         preferences =
                             application.form.preferences.copy(
+                                preferredStartDate = preschoolTerm.finnishPreschool.start,
                                 preferredUnits =
                                     listOf(PreferredUnit(preferredUnit.id, preferredUnit.name)),
                                 serviceNeed =
