@@ -5,8 +5,8 @@
 package fi.espoo.evaka.application
 
 import fi.espoo.evaka.Audit
-import fi.espoo.evaka.daycare.Daycare
 import fi.espoo.evaka.daycare.PreschoolTerm
+import fi.espoo.evaka.daycare.getChild
 import fi.espoo.evaka.daycare.getDaycare
 import fi.espoo.evaka.daycare.getDaycareGroup
 import fi.espoo.evaka.daycare.getPreschoolTerms
@@ -26,7 +26,8 @@ import fi.espoo.evaka.pis.getParentships
 import fi.espoo.evaka.pis.getPersonById
 import fi.espoo.evaka.pis.service.PersonJSON
 import fi.espoo.evaka.pis.service.PersonService
-import fi.espoo.evaka.pis.service.getChildGuardians
+import fi.espoo.evaka.pis.service.getBlockedGuardians
+import fi.espoo.evaka.pis.service.getChildGuardiansAndFosterParents
 import fi.espoo.evaka.placement.PlacementPlanConfirmationStatus
 import fi.espoo.evaka.placement.PlacementPlanDetails
 import fi.espoo.evaka.placement.PlacementPlanDraft
@@ -50,6 +51,7 @@ import fi.espoo.evaka.shared.db.Database
 import fi.espoo.evaka.shared.db.DatabaseEnum
 import fi.espoo.evaka.shared.domain.BadRequest
 import fi.espoo.evaka.shared.domain.Conflict
+import fi.espoo.evaka.shared.domain.DateRange
 import fi.espoo.evaka.shared.domain.EvakaClock
 import fi.espoo.evaka.shared.domain.FiniteDateRange
 import fi.espoo.evaka.shared.domain.Forbidden
@@ -198,17 +200,33 @@ class ApplicationControllerV2(
                 val nextPreschoolTerm =
                     tx.getPreschoolTerms().first { it.finnishPreschool.start > clock.today() }
                 val placements = parsePlacementToolCsv(file.inputStream)
+                val skippedChildren = mutableListOf<ChildId>()
                 placements
                     .forEach { row ->
-                        val guardianIds = tx.getChildGuardians(row.childId)
+                        if (row.childId == null || tx.getChild(row.childId) == null) {
+                            // todo log and/or collect missing children
+                            row.childId?.let { skippedChildren += it }
+                            return@forEach
+                        }
+                        val guardianIds =
+                            tx.getChildGuardiansAndFosterParents(row.childId, clock.today()) -
+                                tx.getBlockedGuardians(row.childId).toSet()
+                        if (guardianIds.isEmpty()) {
+                            // todo log and/or collect children with no guardian
+                            skippedChildren += row.childId
+                            return@forEach
+                        }
                         val guardianId =
                             guardianIds.find { id ->
                                 id ==
-                                    tx.getParentships(headOfChildId = null, childId = row.childId)
+                                    tx.getParentships(
+                                            headOfChildId = null,
+                                            childId = row.childId,
+                                            period = DateRange(clock.today(), null)
+                                        )
                                         .firstOrNull()
                                         ?.headOfChildId
-                            }
-                                ?: guardianIds.first()
+                            } ?: guardianIds.first()
 
                         // save paper application
                         val (_, applicationId) =
@@ -229,27 +247,23 @@ class ApplicationControllerV2(
                             )
 
                         val application = tx.fetchApplicationDetails(applicationId)!!
-                        val preferredGroup = tx.getDaycareGroup(row.preschoolGroupId)!!
-                        val preferredUnit = tx.getDaycare(preferredGroup.daycareId)!!
-                        val currentPlacement =
-                            tx.getPlacementsForChildDuring(row.childId, clock.today(), null)
-                                .firstOrNull()
-                        val preparatory =
-                            currentPlacement?.type in
-                                listOf(PlacementType.PREPARATORY, PlacementType.PREPARATORY_DAYCARE)
 
                         updateApplicationPreferences(
                             tx,
                             user,
                             clock,
                             application,
-                            preferredUnit,
-                            preparatory,
+                            row,
+                            guardianIds,
                             defaultServiceNeedOption,
                             nextPreschoolTerm
                         )
                     }
-                    .also { Audit.PlacementTool.log(meta = mapOf("total" to placements.size)) }
+                    .also {
+                        Audit.PlacementTool.log(
+                            meta = mapOf("total" to placements.size, "skipped" to skippedChildren)
+                        )
+                    }
             }
         }
 
@@ -930,7 +944,9 @@ class ApplicationControllerV2(
                         ChildId(UUID.fromString(row.get(PlacementToolCsvField.CHILD_ID.fieldName))),
                     preschoolGroupId =
                         GroupId(
-                            UUID.fromString(row.get(PlacementToolCsvField.PRESCHOOL_GROUP_ID.fieldName))
+                            UUID.fromString(
+                                row.get(PlacementToolCsvField.PRESCHOOL_GROUP_ID.fieldName)
+                            )
                         )
                 )
             }
@@ -940,11 +956,17 @@ class ApplicationControllerV2(
         user: AuthenticatedUser,
         clock: EvakaClock,
         application: ApplicationDetails,
-        preferredUnit: Daycare,
-        preparatory: Boolean,
+        data: PlacementToolData,
+        guardianIds: List<PersonId>,
         defaultServiceNeedOption: ServiceNeedOption?,
         preschoolTerm: PreschoolTerm
     ) {
+        val preferredGroup = tx.getDaycareGroup(data.preschoolGroupId)!!
+        val preferredUnit = tx.getDaycare(preferredGroup.daycareId)!!
+        val preparatory =
+            tx.getPlacementsForChildDuring(data.childId!!, clock.today(), null)
+                .firstOrNull()
+                ?.type in listOf(PlacementType.PREPARATORY, PlacementType.PREPARATORY_DAYCARE)
 
         // update preferences to application
         val updatedApplication =
@@ -959,8 +981,8 @@ class ApplicationControllerV2(
                                 serviceNeed =
                                     if (preparatory) {
                                         ServiceNeed(
-                                            startTime = "07:00",
-                                            endTime = "17:00",
+                                            startTime = "07:00", // todo: parametrize
+                                            endTime = "17:00", // todo: parametrize
                                             shiftCare = false,
                                             partTime = false,
                                             serviceNeedOption = defaultServiceNeedOption
@@ -969,7 +991,18 @@ class ApplicationControllerV2(
                                         null
                                     },
                                 urgent = false
-                            )
+                            ),
+                        secondGuardian =
+                            guardianIds
+                                .firstOrNull { it != application.guardianId }
+                                ?.let {
+                                    val guardian2 = tx.getPersonById(it)!!
+                                    SecondGuardian(
+                                        phoneNumber = guardian2.phone,
+                                        email = guardian2.email ?: "",
+                                        agreementStatus = OtherGuardianAgreementStatus.AGREED
+                                    )
+                                }
                     )
             )
 
@@ -1067,4 +1100,4 @@ data class UnitApplications(
     val applications: List<ApplicationUnitSummary>
 )
 
-data class PlacementToolData(val childId: ChildId, val preschoolGroupId: GroupId)
+data class PlacementToolData(val childId: ChildId?, val preschoolGroupId: GroupId)
