@@ -99,9 +99,10 @@ SELECT
     upper(g2.post_office) AS guardian_2_post_office, 
     g2.phone AS guardian_2_phone,
     g2.email AS guardian_2_email,
-    CASE WHEN sn.shift_care = 'FULL'::shift_care_type OR sn.shift_care = 'INTERMITTENT'::shift_care_type THEN true ELSE false END AS shift_care,
+    CASE WHEN sn.shift_care = 'FULL'::shift_care_type OR sn.shift_care = 'INTERMITTENT'::shift_care_type THEN true ELSE false END AS shift_care, -- bugi
     NULL AS language_emphasis_group, -- cannot be obtained from current evaka dataset
-    CASE WHEN sno.name_fi like 'Kaksivuotinen%' THEN true ELSE false END AS two_year_preschool
+    CASE WHEN sno.name_fi like 'Kaksivuotinen%' THEN true ELSE false END AS two_year_preschool,
+    CASE WHEN da.level = 'SPECIAL_SUPPORT'::daycare_assistance_level THEN true ELSE false END AS special_assistance-- lisätään 'erityinen tuki'
 FROM person p
 JOIN placement pl ON pl.child_id = p.id AND pl.start_date < :today AND pl.end_date >= :today
 JOIN daycare d ON d.id = pl.unit_id
@@ -124,20 +125,21 @@ LEFT JOIN (
     LIMIT 1
     OFFSET 1
     )
-LEFT JOIN service_need sn ON sn.placement_id = p.id and sn.start_date < :today AND sn.end_date >= :today
-LEFT JOIN service_need_option sno on sn.option_id = sno.id
+LEFT JOIN service_need sn ON sn.placement_id = pl.id AND sn.start_date < :today AND sn.end_date >= :today
+LEFT JOIN service_need_option sno ON sn.option_id = sno.id
+LEFT JOIN daycare_assistance da ON da.child_id = p.id AND valid_during @> :today
 LEFT JOIN LATERAL (
     SELECT DISTINCT area_name_fi AS unit_area
     FROM preschool_pickup_area
-    WHERE p.street_address like street_name_fi || ' ' || house_number OR
+    WHERE p.street_address LIKE street_name_fi || ' ' || house_number OR
         starts_with(p.street_address, street_name_fi || ' ' || house_number || ' ') OR
-        p.street_address like street_name_sv || ' ' || house_number OR
+        p.street_address LIKE street_name_sv || ' ' || house_number OR
         starts_with(p.street_address, street_name_sv || ' ' || house_number || ' ') 
 ) ppa ON TRUE
 WHERE CASE WHEN sno.name_fi like 'Kaksivuotinen%' THEN
-    extract(year from :today) -  extract(year from p.date_of_birth) = $preschoolSelectionAge - 1
+    extract(year FROM :today) -  extract(year FROM p.date_of_birth) = $preschoolSelectionAge - 1
 ELSE
-    extract(year from :today) -  extract(year from p.date_of_birth) = $preschoolSelectionAge
+    extract(year FROM :today) -  extract(year FROM p.date_of_birth) = $preschoolSelectionAge
 END
             """
                     .trimIndent()
@@ -208,7 +210,8 @@ data class FuturePreschoolersReportRow(
     val guardian2Email: String?,
     val shiftCare: Boolean,
     val languageEmphasisGroup: String?,
-    val twoYearPreschool: Boolean
+    val twoYearPreschool: Boolean,
+    val specialAssistance: Boolean
 )
 
 data class PreschoolGroupsReportRow(

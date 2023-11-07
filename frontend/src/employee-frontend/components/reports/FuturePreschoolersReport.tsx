@@ -95,7 +95,8 @@ export default React.memo(function FuturePreschoolersReport() {
                   {
                     label: 'kaksivuotisessa esiopetuksessa',
                     key: 'twoYearPreschool'
-                  }
+                  },
+                  { label: 'erityinen tuki', key: 'specialAssistance' }
                 ]}
                 filename="Esiopetusoppilaat_rakenne.csv"
               />

@@ -355,6 +355,7 @@ export interface FuturePreschoolersReportRow {
   guardian2PostalCode: string | null
   languageEmphasisGroup: string | null
   shiftCare: boolean
+  specialAssistance: boolean
   twoYearPreschool: boolean
   unitAddress: string
   unitArea: string | null
