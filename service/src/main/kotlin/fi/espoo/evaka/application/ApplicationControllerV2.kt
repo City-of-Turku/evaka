@@ -258,6 +258,8 @@ class ApplicationControllerV2(
                             defaultServiceNeedOption,
                             nextPreschoolTerm
                         )
+
+                        applicationStateService.sendApplication(tx, user, clock, applicationId)
                     }
                     .also {
                         Audit.PlacementTool.log(
