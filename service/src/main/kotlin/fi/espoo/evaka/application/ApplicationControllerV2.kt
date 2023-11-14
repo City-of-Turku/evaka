@@ -259,7 +259,23 @@ class ApplicationControllerV2(
                             nextPreschoolTerm
                         )
 
-                        applicationStateService.sendApplication(tx, user, clock, applicationId)
+                        val applicationFlags = tx.applicationFlags(application, clock.today())
+                        tx.updateApplicationFlags(application.id, applicationFlags)
+
+                        val sentDate = application.sentDate!!
+                        val dueDate =  applicationStateService.calculateDueDate(
+                            application.type,
+                            sentDate,
+                            application.form.preferences.preferredStartDate,
+                            application.form.preferences.urgent,
+                            applicationFlags.isTransferApplication,
+                            application.attachments
+                        )
+                        tx.updateApplicationDates(application.id, sentDate, dueDate)
+
+                        // todo: send notification via eVaka messaging
+
+                        tx.updateApplicationStatus(application.id, ApplicationStatus.SENT)
                     }
                     .also {
                         Audit.PlacementTool.log(
