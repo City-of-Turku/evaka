@@ -38,6 +38,12 @@ import fi.espoo.evaka.decision.markApplicationDecisionsSent
 import fi.espoo.evaka.decision.markDecisionAccepted
 import fi.espoo.evaka.decision.markDecisionRejected
 import fi.espoo.evaka.identity.ExternalIdentifier
+import fi.espoo.evaka.messaging.MessageRecipient
+import fi.espoo.evaka.messaging.MessageRecipientType
+import fi.espoo.evaka.messaging.MessageService
+import fi.espoo.evaka.messaging.MessageType
+import fi.espoo.evaka.messaging.NewMessageStub
+import fi.espoo.evaka.messaging.getServiceWorkerAccountId
 import fi.espoo.evaka.pis.getPersonById
 import fi.espoo.evaka.pis.service.PersonDTO
 import fi.espoo.evaka.pis.service.PersonService
@@ -79,6 +85,7 @@ class ApplicationStateService(
     private val placementPlanService: PlacementPlanService,
     private val decisionService: DecisionService,
     private val personService: PersonService,
+    private val messageService: MessageService,
     private val asyncJobRunner: AsyncJobRunner<AsyncJob>,
     private val documentClient: DocumentService,
     private val featureConfig: FeatureConfig,
@@ -305,6 +312,47 @@ class ApplicationStateService(
 
         tx.updateApplicationStatus(application.id, SENT)
         Audit.ApplicationSend.log(targetId = applicationId)
+    }
+
+    fun sendPlacementToolApplication(
+        tx: Database.Transaction,
+        user: AuthenticatedUser,
+        clock: EvakaClock,
+        application: ApplicationDetails,
+    ) {
+        val applicationFlags = tx.applicationFlags(application, clock.today())
+        tx.updateApplicationFlags(application.id, applicationFlags)
+
+        val sentDate = application.sentDate!!
+        val dueDate = application.sentDate
+        tx.updateApplicationDates(application.id, sentDate, dueDate)
+
+        messageService.sendMessageAsEmployee(
+            tx,
+            user,
+            clock.now(),
+            sender = tx.getServiceWorkerAccountId()!!,
+            type = MessageType.MESSAGE,
+            msg =
+                NewMessageStub(
+                    title = "Foobar", // todo:
+                    content = "Lorem ipsum dolor sit amet", // todo:
+                    urgent = false,
+                    sensitive = false
+                ),
+            recipients =
+                setOf(MessageRecipient(MessageRecipientType.CITIZEN, application.guardianId)),
+            recipientNames =
+                listOf(
+                    tx.getPersonById(application.guardianId)?.let {
+                        "${it.firstName} ${it.lastName}"
+                    } ?: ""
+                ),
+            attachments = setOf(),
+            relatedApplication = application.id
+        )
+
+        tx.updateApplicationStatus(application.id, SENT)
     }
 
     fun moveToWaitingPlacement(

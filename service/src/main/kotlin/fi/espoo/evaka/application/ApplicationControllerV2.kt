@@ -204,7 +204,6 @@ class ApplicationControllerV2(
                 placements
                     .forEach { row ->
                         if (row.childId == null || tx.getChild(row.childId) == null) {
-                            // todo log and/or collect missing children
                             row.childId?.let { skippedChildren += it }
                             return@forEach
                         }
@@ -212,7 +211,6 @@ class ApplicationControllerV2(
                             tx.getChildGuardiansAndFosterParents(row.childId, clock.today()) -
                                 tx.getBlockedGuardians(row.childId).toSet()
                         if (guardianIds.isEmpty()) {
-                            // todo log and/or collect children with no guardian
                             skippedChildren += row.childId
                             return@forEach
                         }
@@ -228,7 +226,6 @@ class ApplicationControllerV2(
                                         ?.headOfChildId
                             } ?: guardianIds.first()
 
-                        // save paper application
                         val (_, applicationId) =
                             savePaperApplication(
                                 tx,
@@ -259,27 +256,20 @@ class ApplicationControllerV2(
                             nextPreschoolTerm
                         )
 
-                        val applicationFlags = tx.applicationFlags(application, clock.today())
-                        tx.updateApplicationFlags(application.id, applicationFlags)
-
-                        val sentDate = application.sentDate!!
-                        val dueDate =  applicationStateService.calculateDueDate(
-                            application.type,
-                            sentDate,
-                            application.form.preferences.preferredStartDate,
-                            application.form.preferences.urgent,
-                            applicationFlags.isTransferApplication,
-                            application.attachments
+                        applicationStateService.sendPlacementToolApplication(
+                            tx,
+                            user,
+                            clock,
+                            application
                         )
-                        tx.updateApplicationDates(application.id, sentDate, dueDate)
-
-                        // todo: send notification via eVaka messaging
-
-                        tx.updateApplicationStatus(application.id, ApplicationStatus.SENT)
                     }
                     .also {
                         Audit.PlacementTool.log(
-                            meta = mapOf("total" to placements.size, "skipped" to skippedChildren)
+                            meta =
+                                mapOf(
+                                    "total" to placements.size - skippedChildren.size,
+                                    "skipped" to skippedChildren
+                                )
                         )
                     }
             }
@@ -981,10 +971,10 @@ class ApplicationControllerV2(
     ) {
         val preferredGroup = tx.getDaycareGroup(data.preschoolGroupId)!!
         val preferredUnit = tx.getDaycare(preferredGroup.daycareId)!!
-        val preparatory =
+        val partTime =
             tx.getPlacementsForChildDuring(data.childId!!, clock.today(), null)
                 .firstOrNull()
-                ?.type in listOf(PlacementType.PREPARATORY, PlacementType.PREPARATORY_DAYCARE)
+                ?.type in listOf(PlacementType.DAYCARE_PART_TIME, PlacementType.DAYCARE_PART_TIME_FIVE_YEAR_OLDS)
 
         // update preferences to application
         val updatedApplication =
@@ -997,7 +987,7 @@ class ApplicationControllerV2(
                                 preferredUnits =
                                     listOf(PreferredUnit(preferredUnit.id, preferredUnit.name)),
                                 serviceNeed =
-                                    if (preparatory) {
+                                    if (partTime) {
                                         ServiceNeed(
                                             startTime = "07:00", // todo: parametrize
                                             endTime = "17:00", // todo: parametrize
