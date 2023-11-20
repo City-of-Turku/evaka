@@ -335,8 +335,39 @@ class ApplicationStateService(
             type = MessageType.MESSAGE,
             msg =
                 NewMessageStub(
-                    title = "Foobar", // todo:
-                    content = "Lorem ipsum dolor sit amet", // todo:
+                    title =
+                        "Esitäyttetty hakemus esiopetukseen / Pre-filled application for preschool education", // todo: parametrize
+                    content =
+                        """Hei!
+
+Olemme tehneet lapsellenne esitäytetyn hakemuksen esiopetukseen. Hakemus on tehty lapsen oppilaaksiottoalueen mukaiseen esiopetusyksikköön.
+
+Mikäli haluatte hakeutua muuhun kuin lapsellenne osoitettuun paikkaan, voitte muokata hakemusta eVakassa 1.1.2024-14.1.2024 välisenä aikana.
+
+Jos taas hyväksytte osoitetun esiopetuspaikan, teidän ei tarvitse tehdä mitään. Saatte päätöksen esiopetuspaikasta helmikuun 2024 aikana.
+
+Esiopetushakemus on nähtävillä osoitteessa https://evaka.turku.fi/login (vaatii vahvan tunnistautumisen).
+
+Terveisin
+
+Turun kaupungin Varhaiskasvatus
+
+
+Hello!
+
+We have made a pre-filled application for preschool education for your child. The application has been submitted to the pre-school unit according to the child's pupil enrollment area.
+
+If you want to apply for a place other than the one assigned to your child, you can edit the application in eVaka between January 1, 2024 and January 14, 2024.
+
+If you accept the assigned pre-school place, you don't have to do anything. You will receive a decision about the preschool place during February 2024.
+
+The preschool application can be viewed at https://evaka.turku.fi/login (requires strong identification).
+
+Best regards
+
+Early childhood education in the city of Turku
+                        """
+                            .trimIndent(),
                     urgent = false,
                     sensitive = false
                 ),
