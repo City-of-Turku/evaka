@@ -1017,11 +1017,10 @@ class ApplicationControllerV2(
         applicationStateService.updateApplicationContentsServiceWorker(
             tx,
             user,
+            clock.now(),
             application.id,
             ApplicationUpdate(form = ApplicationFormUpdate.from(updatedApplication.form)),
-            user.evakaUserId,
-            clock.today(),
-            clock.now()
+            user.evakaUserId
         )
     }
 }
