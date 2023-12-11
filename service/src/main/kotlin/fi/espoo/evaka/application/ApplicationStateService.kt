@@ -346,8 +346,6 @@ Mikäli haluatte hakeutua muuhun kuin lapsellenne osoitettuun paikkaan, voitte m
 
 Jos taas hyväksytte osoitetun esiopetuspaikan, teidän ei tarvitse tehdä mitään. Saatte päätöksen esiopetuspaikasta helmikuun 2024 aikana.
 
-Esiopetushakemus on nähtävillä osoitteessa https://evaka.turku.fi/login (vaatii vahvan tunnistautumisen).
-
 Terveisin
 
 Turun kaupungin Varhaiskasvatus
@@ -360,8 +358,6 @@ We have made a pre-filled application for preschool education for your child. Th
 If you want to apply for a place other than the one assigned to your child, you can edit the application in eVaka between January 1, 2024 and January 14, 2024.
 
 If you accept the assigned pre-school place, you don't have to do anything. You will receive a decision about the preschool place during February 2024.
-
-The preschool application can be viewed at https://evaka.turku.fi/login (requires strong identification).
 
 Best regards
 
