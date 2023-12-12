@@ -37,6 +37,7 @@ import fi.espoo.evaka.placement.PlacementType
 import fi.espoo.evaka.placement.getPlacementPlanUnitName
 import fi.espoo.evaka.placement.getPlacementPlans
 import fi.espoo.evaka.placement.getPlacementsForChildDuring
+import fi.espoo.evaka.reports.REPORT_STATEMENT_TIMEOUT
 import fi.espoo.evaka.serviceneed.getServiceNeedOptionPublicInfos
 import fi.espoo.evaka.shared.ApplicationId
 import fi.espoo.evaka.shared.ChildId
@@ -185,6 +186,8 @@ class ApplicationControllerV2(
     ): UUID {
         db.connect { dbc ->
             dbc.transaction { tx ->
+                tx.setStatementTimeout(REPORT_STATEMENT_TIMEOUT)
+
                 val defaultServiceNeedOption =
                     tx.getServiceNeedOptionPublicInfos(listOf(PlacementType.PRESCHOOL_DAYCARE))
                         .firstOrNull()
