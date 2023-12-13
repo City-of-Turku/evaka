@@ -5,6 +5,9 @@
 package fi.espoo.evaka.application
 
 import fi.espoo.evaka.attachment.AttachmentType
+import fi.espoo.evaka.identity.ExternalIdentifier
+import fi.espoo.evaka.pis.createPerson
+import fi.espoo.evaka.pis.getPersonById
 import fi.espoo.evaka.pis.service.PersonService
 import fi.espoo.evaka.placement.PlacementPlanConfirmationStatus
 import fi.espoo.evaka.placement.PlacementPlanRejectReason
@@ -22,7 +25,10 @@ import fi.espoo.evaka.shared.PersonId
 import fi.espoo.evaka.shared.auth.AuthenticatedUser
 import fi.espoo.evaka.shared.db.Database
 import fi.espoo.evaka.shared.db.DatabaseEnum
+import fi.espoo.evaka.shared.domain.BadRequest
+import fi.espoo.evaka.shared.domain.EvakaClock
 import fi.espoo.evaka.shared.domain.HelsinkiDateTime
+import fi.espoo.evaka.shared.security.upsertCitizenUser
 import java.time.LocalDate
 
 data class CitizenApplicationUpdate(
@@ -244,3 +250,64 @@ fun fetchApplicationDetailsWithCurrentOtherGuardianInfoAndFilteredAttachments(
                     }
             )
         }
+
+fun savePaperApplication(
+    tx: Database.Transaction,
+    user: AuthenticatedUser,
+    clock: EvakaClock,
+    paper: PaperApplicationCreateRequest,
+    personService: PersonService,
+    applicationStateService: ApplicationStateService
+): Pair<PersonId, ApplicationId> {
+    val child =
+        tx.getPersonById(paper.childId)
+            ?: throw BadRequest("Could not find the child with id ${paper.childId}")
+
+    val guardianId =
+        paper.guardianId
+            ?: if (!paper.guardianSsn.isNullOrEmpty()) {
+                personService
+                    .getOrCreatePerson(
+                        tx,
+                        user,
+                        ExternalIdentifier.SSN.getInstance(paper.guardianSsn)
+                    )
+                    ?.id
+                    ?: throw BadRequest("Could not find the guardian with ssn ${paper.guardianSsn}")
+            } else if (paper.guardianToBeCreated != null) {
+                createPerson(tx, paper.guardianToBeCreated)
+            } else {
+                throw BadRequest(
+                    "Could not find guardian info from paper application request for ${paper.childId}"
+                )
+            }
+
+    val guardian =
+        tx.getPersonById(guardianId)
+            ?: throw BadRequest("Could not find the guardian with id $guardianId")
+
+    // If the guardian has never logged in to eVaka, evaka_user might not contain a
+    // row for them yet
+    tx.upsertCitizenUser(guardianId)
+
+    val id =
+        tx.insertApplication(
+            type = paper.type,
+            guardianId = guardianId,
+            childId = paper.childId,
+            origin = ApplicationOrigin.PAPER,
+            hideFromGuardian = paper.hideFromGuardian,
+            sentDate = paper.sentDate,
+        )
+    applicationStateService.initializeApplicationForm(
+        tx,
+        user,
+        clock.today(),
+        clock.now(),
+        id,
+        paper.type,
+        guardian,
+        child
+    )
+    return Pair(guardianId, id)
+}

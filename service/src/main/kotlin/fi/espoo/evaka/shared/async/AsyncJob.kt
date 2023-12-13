@@ -7,6 +7,9 @@ package fi.espoo.evaka.shared.async
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import fi.espoo.evaka.application.ApplicationType
+import fi.espoo.evaka.application.PlacementToolData
+import fi.espoo.evaka.application.ServiceNeedOption
+import fi.espoo.evaka.daycare.PreschoolTerm
 import fi.espoo.evaka.daycare.domain.Language
 import fi.espoo.evaka.invoicing.service.IncomeNotificationType
 import fi.espoo.evaka.koski.KoskiStudyRightKey
@@ -37,6 +40,7 @@ import fi.espoo.evaka.varda.VardaChildCalculatedServiceNeedChanges
 import java.time.Duration
 import java.util.UUID
 import kotlin.reflect.KClass
+import org.springframework.web.multipart.MultipartFile
 
 data class AsyncJobType<T : AsyncJobPayload>(val payloadClass: KClass<T>) {
     val name: String = payloadClass.simpleName!!
@@ -293,6 +297,13 @@ sealed interface AsyncJob : AsyncJobPayload {
         override val user: AuthenticatedUser? = null
     }
 
+    data class PlacementTool(
+        val data: PlacementToolData,
+        val defaultServiceNeedOption: ServiceNeedOption?,
+        val nextPreschoolTerm: PreschoolTerm,
+        override val user: AuthenticatedUser,
+    ) : AsyncJob
+
     companion object {
         val main =
             AsyncJobRunner.Pool(
@@ -319,6 +330,7 @@ sealed interface AsyncJob : AsyncJobPayload {
                     UpdateFromVtj::class,
                     UploadToKoski::class,
                     VTJRefresh::class,
+                    PlacementTool::class
                 )
             )
         val email =
