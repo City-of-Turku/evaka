@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-import { query } from 'lib-common/query'
+import { mutation, query } from 'lib-common/query'
 
 import { getVoucherValues } from '../../generated/api-clients/invoicing'
+import { deleteVoucherValue } from '../../generated/api-clients/invoicing'
 import { getServiceNeedOptions } from '../../generated/api-clients/serviceneed'
 import { createQueryKeys } from '../../query'
 
@@ -21,4 +22,9 @@ export const serviceNeedsQuery = query({
 export const voucherValuesQuery = query({
   api: getVoucherValues,
   queryKey: queryKeys.voucherValues
+})
+
+export const deleteVoucherValueMutation = mutation({
+  api: deleteVoucherValue,
+  invalidateQueryKeys: ({ id }) => [queryKeys.voucherValues()]
 })
